@@ -1404,7 +1404,7 @@ const CorporateDashboard = () => {
               {/* Profile Picture */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <Avatar
-                  src={profileImagePreview || undefined}
+                  src={profileImagePreview?.includes('cloudinary.com') ? profileImagePreview : (profileImagePreview ? `${process.env.REACT_APP_API_BASE || 'http://localhost:4000/api'}${profileImagePreview}` : undefined)}
                   alt={user?.firstName || 'User'}
                   sx={{ width: 72, height: 72 }}
                 >
@@ -1668,7 +1668,7 @@ const CorporateDashboard = () => {
             
             <IconButton onClick={handleUserMenuOpen}>
               <Avatar
-                src={user?.profileImage || user?.personalInfo?.profileImage || undefined}
+                src={user?.profileImage?.includes('cloudinary.com') ? user?.profileImage : (user?.profileImage ? `${process.env.REACT_APP_API_BASE || 'http://localhost:4000/api'}${user?.profileImage}` : user?.personalInfo?.profileImage || undefined)}
                 sx={{ width: 32, height: 32, bgcolor: '#4caf50' }}
               >
                 {user?.firstName?.charAt(0) || 'C'}

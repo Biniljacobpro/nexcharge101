@@ -656,7 +656,7 @@ const UserManagementSection = ({ users, onAddCorporateAdmin, onRefresh }) => {
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Avatar 
-                            src={u.profileImage || undefined}
+                            src={u.profileImage?.includes('cloudinary.com') ? u.profileImage : (u.profileImage ? `${process.env.REACT_APP_API_BASE || 'http://localhost:4000/api'}${u.profileImage}` : undefined)}
                             sx={{ 
                               width: 32, 
                               height: 32, 
@@ -1494,7 +1494,7 @@ const AdminDashboard = () => {
             <NotificationDropdown />
             <IconButton onClick={(e) => setUserMenuAnchor(e.currentTarget)}>
               <Avatar 
-                src={user?.profileImage || undefined}
+                src={user?.profileImage?.includes('cloudinary.com') ? user?.profileImage : (user?.profileImage ? `${process.env.REACT_APP_API_BASE || 'http://localhost:4000/api'}${user?.profileImage}` : undefined)}
                 sx={{ 
                   bgcolor: user?.profileImage ? 'transparent' : 'primary.main', 
                   width: 40, 

@@ -55,9 +55,9 @@ CLOUDINARY_URL=cloudinary://321938326249945:joBijmJE0-19ikSCb_MgyDZ9iOM@dzc2lma5
 
 ### Frontend Environment Variables (.env.production)
 
-```env
+``env
 # API Base URL for Production
-REACT_APP_API_BASE=https://nexcharge-qu9o.vercel.app
+REACT_APP_API_BASE=https://nexcharge101.vercel.app
 
 # Firebase Configuration
 REACT_APP_FIREBASE_API_KEY=AIzaSyCPcSXZHUSLU1qgPFrdPjx1NfBxqtj-VNs

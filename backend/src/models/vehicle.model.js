@@ -189,5 +189,64 @@ VehicleSchema.statics.getCompatibleVehicles = function(chargerTypes) {
   });
 };
 
+// Static method to check compatibility between vehicle and charger type
+VehicleSchema.statics.checkCompatibility = function(vehicle, chargerType) {
+  // Normalize charger type
+  const normalizedChargerType = chargerType.toLowerCase().replace(/[-_\s]/g, '');
+  
+  // Check DC compatibility
+  if (vehicle.chargingDC?.supported) {
+    if (Array.isArray(vehicle.chargingDC.connectorTypes)) {
+      for (const type of vehicle.chargingDC.connectorTypes) {
+        const normalizedVehicleType = type.toLowerCase().replace(/[-_\s]/g, '');
+        if (normalizedVehicleType === normalizedChargerType) {
+          return {
+            compatible: true,
+            chargingMethod: 'DC',
+            maxPower: vehicle.chargingDC.maxPower
+          };
+        }
+      }
+    }
+  }
+  
+  // Check AC compatibility
+  if (vehicle.chargingAC?.supported) {
+    if (Array.isArray(vehicle.chargingAC.connectorTypes)) {
+      for (const type of vehicle.chargingAC.connectorTypes) {
+        const normalizedVehicleType = type.toLowerCase().replace(/[-_\s]/g, '');
+        if (normalizedVehicleType === normalizedChargerType) {
+          return {
+            compatible: true,
+            chargingMethod: 'AC',
+            maxPower: vehicle.chargingAC.maxPower
+          };
+        }
+      }
+    }
+  }
+  
+  return {
+    compatible: false,
+    chargingMethod: null,
+    maxPower: 0
+  };
+};
+
+// Add this method to get incompatible message
+VehicleSchema.statics.getIncompatibilityMessage = function(vehicle, chargerType) {
+  const compatibility = this.checkCompatibility(vehicle, chargerType);
+  
+  if (compatibility.compatible) {
+    return null;
+  }
+  
+  // Generate appropriate message
+  const vehicleName = `${vehicle.make} ${vehicle.model}`;
+  const chargerTypeName = chargerType.toUpperCase().replace('_', ' ');
+  
+  return `Incompatible: ${chargerTypeName} not supported by ${vehicleName}.`;
+};
+
 export default mongoose.model('Vehicle', VehicleSchema);
 

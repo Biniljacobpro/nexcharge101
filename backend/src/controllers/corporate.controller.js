@@ -807,7 +807,11 @@ export const getAnalytics = async (req, res) => {
     if (!corporateId) return res.status(403).json({ success: false, message: 'Corporate context not found' });
     const { period = 'month' } = req.query;
 
-    // Get revenue data for the specified period
+    // Get franchises under this corporate
+    const corpFranchises = await Franchise.find({ corporateId }).select('_id').lean();
+    const corpFranchiseIds = corpFranchises.map(f => f._id);
+
+    // Calculate date range based on period
     const endDate = new Date();
     const startDate = new Date();
     
@@ -816,7 +820,7 @@ export const getAnalytics = async (req, res) => {
         startDate.setDate(endDate.getDate() - 7);
         break;
       case 'month':
-        startDate.setMonth(endDate.getMonth() - 6);
+        startDate.setMonth(endDate.getMonth() - 6); // Last 6 months plus current
         break;
       case 'year':
         startDate.setFullYear(endDate.getFullYear() - 1);
@@ -825,42 +829,109 @@ export const getAnalytics = async (req, res) => {
         startDate.setMonth(endDate.getMonth() - 6);
     }
 
+    // Get bookings for revenue data
     const bookings = await Booking.find({
-      'roleSpecificData.franchiseOwnerInfo.franchiseId': { $exists: true },
+      $or: [
+        { corporateId },
+        { franchiseId: { $in: corpFranchiseIds } }
+      ],
       createdAt: { $gte: startDate, $lte: endDate },
       status: { $in: ['completed', 'in-progress'] }
     });
 
-    // Group by time period
-    const revenueData = [];
-    const stationData = [];
+    // Group bookings by month for revenue chart
+    const monthlyData = {};
     
-    // Mock data for demonstration - replace with actual calculations
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    const revenueValues = [850000, 920000, 1100000, 1250000, 1180000, 1320000];
-    const bookingValues = [1200, 1350, 1580, 1720, 1650, 1890];
+    // Initialize months
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const monthKey = date.toLocaleString('default', { month: 'short' });
+      monthlyData[monthKey] = { revenue: 0, bookings: 0 };
+    }
+    
+    // Process bookings
+    bookings.forEach(booking => {
+      const monthKey = booking.createdAt.toLocaleString('default', { month: 'short' });
+      if (monthlyData[monthKey]) {
+        monthlyData[monthKey].revenue += booking.amount || 0;
+        monthlyData[monthKey].bookings += 1;
+      }
+    });
+    
+    // Convert to array format for chart
+    const revenueData = Object.entries(monthlyData).map(([month, data]) => ({
+      month,
+      revenue: data.revenue,
+      bookings: data.bookings
+    }));
 
-    months.forEach((month, index) => {
-      revenueData.push({
-        month: month,
-        revenue: revenueValues[index],
-        bookings: bookingValues[index]
-      });
+    // Get stations for station type distribution
+    const stations = await Station.find({
+      $or: [
+        { corporateId },
+        { franchiseId: { $in: corpFranchiseIds } }
+      ]
     });
 
-    // Station type distribution
-    stationData.push(
-      { name: 'Fast Charging', value: 35, color: '#0088FE' },
-      { name: 'Standard Charging', value: 45, color: '#00C49F' },
-      { name: 'Slow Charging', value: 20, color: '#FFBB28' }
-    );
+    // Calculate station type distribution based on charger types
+    const chargerTypeCounts = {};
+    stations.forEach(station => {
+      if (station.capacity?.chargerTypes && Array.isArray(station.capacity.chargerTypes)) {
+        // Use the chargerTypes array from capacity
+        station.capacity.chargerTypes.forEach(type => {
+          if (type) {
+            chargerTypeCounts[type] = (chargerTypeCounts[type] || 0) + 1;
+          }
+        });
+      } else if (station.chargers && Array.isArray(station.chargers)) {
+        // Fallback to individual chargers array
+        station.chargers.forEach(charger => {
+          if (charger.type) {
+            chargerTypeCounts[charger.type] = (chargerTypeCounts[charger.type] || 0) + 1;
+          }
+        });
+      }
+    });
 
-    // Performance metrics
+    // Convert to chart format with colors
+    const chargerTypeColors = {
+      'Fast Charging': '#0088FE',
+      'Standard Charging': '#00C49F',
+      'Slow Charging': '#FFBB28',
+      'Ultra Fast': '#FF8042',
+      'Rapid Charging': '#8884d8'
+    };
+
+    const stationData = Object.entries(chargerTypeCounts).map(([type, count], index) => ({
+      name: type,
+      value: count,
+      color: chargerTypeColors[type] || `hsl(${index * 60}, 70%, 50%)`
+    }));
+
+    // Calculate performance metrics
+    const totalBookings = bookings.length;
+    const totalRevenue = bookings.reduce((sum, booking) => sum + (booking.amount || 0), 0);
+    
+    // Average rating calculation (would come from reviews in real implementation)
+    const avgRating = 4.6; // This would be calculated from actual reviews
+    
+    // Network efficiency calculation (simplified)
+    const totalStations = stations.length;
+    const activeStations = stations.filter(s => s.operational?.status === 'active').length;
+    const networkEfficiency = totalStations > 0 ? Math.round((activeStations / totalStations) * 100) : 0;
+    
+    // Station uptime calculation (simplified)
+    const stationUptime = 96.2; // This would come from actual uptime tracking
+    
+    // Revenue per station calculation
+    const revenuePerStation = totalStations > 0 ? Math.round(totalRevenue / totalStations) : 0;
+
     const performanceMetrics = {
-      networkEfficiency: 87,
-      customerSatisfaction: 4.6,
-      stationUptime: 96.2,
-      revenuePerStation: 26042
+      networkEfficiency,
+      customerSatisfaction: avgRating,
+      stationUptime,
+      revenuePerStation
     };
 
     res.json({
@@ -979,5 +1050,205 @@ export const getCorporateStations = async (req, res) => {
   } catch (error) {
     console.error('Error fetching corporate stations:', error);
     res.status(500).json({ success: false, message: 'Error fetching stations', error: error.message });
+  }
+};
+
+// Get all bookings for corporate with franchise information
+export const getAllBookings = async (req, res) => {
+  try {
+    const corporateId = await resolveCorporateIdFromRequest(req);
+    if (!corporateId) return res.status(403).json({ success: false, message: 'Corporate context not found' });
+    
+    const { page = 1, limit = 10, franchiseId, status } = req.query;
+    
+    // Get franchises under this corporate
+    const corpFranchises = await Franchise.find({ corporateId }).select('_id name').lean();
+    const corpFranchiseIds = corpFranchises.map(f => f._id);
+    
+    // Get all stations under this corporate (both direct and through franchises)
+    const stationQuery = {
+      $or: [
+        { corporateId },
+        ...(corpFranchiseIds.length > 0 ? [{ franchiseId: { $in: corpFranchiseIds } }] : [])
+      ]
+    };
+    
+    const stations = await Station.find(stationQuery).select('_id franchiseId').lean();
+    const stationIds = stations.map(s => s._id);
+    
+    // Build booking query based on stations
+    let bookingQuery = {
+      stationId: { $in: stationIds }
+    };
+    
+    // Apply franchise filter if specified
+    if (franchiseId && franchiseId !== 'all') {
+      if (franchiseId === 'null') {
+        // Show only corporate direct bookings (stations with corporateId but no franchiseId)
+        // Fix: Query for stations that have corporateId and either don't have franchiseId or have it as null
+        const corpStations = await Station.find({ 
+          corporateId,
+          $or: [
+            { franchiseId: { $exists: false } },
+            { franchiseId: null }
+          ]
+        }).select('_id').lean();
+        const corpStationIds = corpStations.map(s => s._id);
+        bookingQuery.stationId = { $in: corpStationIds };
+      } else {
+        // Show bookings for specific franchise
+        const franchiseStations = await Station.find({ franchiseId }).select('_id').lean();
+        const franchiseStationIds = franchiseStations.map(s => s._id);
+        bookingQuery.stationId = { $in: franchiseStationIds };
+      }
+    }
+    
+    // Apply status filter if specified
+    if (status && status !== 'all') {
+      bookingQuery.status = status;
+    }
+    
+    // Fetch bookings with populated references
+    const bookings = await Booking.find(bookingQuery)
+      .populate('userId', 'personalInfo.firstName personalInfo.lastName personalInfo.email')
+      .populate('stationId', 'name code corporateId franchiseId')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+    
+    // Get total count for pagination
+    const total = await Booking.countDocuments(bookingQuery);
+    
+    // Create a map of stationId to station info for quick lookup
+    const stationMap = stations.reduce((map, station) => {
+      map[station._id.toString()] = station;
+      return map;
+    }, {});
+    
+    // Create a map of franchiseId to franchise name for quick lookup
+    const franchiseMap = corpFranchises.reduce((map, franchise) => {
+      map[franchise._id.toString()] = franchise.name;
+      return map;
+    }, {});
+    
+    const bookingData = bookings.map(booking => {
+      // Get the station info
+      const stationInfo = stationMap[booking.stationId?._id.toString()];
+      const franchiseId = stationInfo?.franchiseId;
+      // Ensure we're using the franchise name from the franchise document, not user data
+      const franchiseName = franchiseId ? (franchiseMap[franchiseId.toString()] || 'Unknown Franchise') : 'Corporate Direct';
+      
+      // Get the correct amount from payment or pricing information
+      const amount = booking.payment?.paidAmount || 
+                    booking.pricing?.actualCost || 
+                    booking.pricing?.estimatedCost || 
+                    0;
+      
+      return {
+        id: booking._id,
+        user: {
+          id: booking.userId?._id,
+          name: `${booking.userId?.personalInfo?.firstName || ''} ${booking.userId?.personalInfo?.lastName || ''}`.trim(),
+          email: booking.userId?.personalInfo?.email || ''
+        },
+        station: {
+          id: booking.stationId?._id,
+          name: booking.stationId?.name || 'Unknown Station',
+          code: booking.stationId?.code || ''
+        },
+        franchise: {
+          id: franchiseId || null,
+          name: franchiseName
+        },
+        amount: amount,
+        createdAt: booking.createdAt,
+        time: getTimeAgo(booking.createdAt),
+        status: booking.status,
+        bookingTime: booking.createdAt.toLocaleString()
+      };
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        bookings: bookingData,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(total / limit),
+          total: total
+        },
+        franchises: corpFranchises.map(f => ({ id: f._id, name: f.name }))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching corporate bookings:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching corporate bookings',
+      error: error.message
+    });
+  }
+};
+
+// Get users with churn risk data for corporate dashboard
+export const getChurnRiskUsers = async (req, res) => {
+  try {
+    const corporateId = await resolveCorporateIdFromRequest(req);
+    if (!corporateId) return res.status(403).json({ success: false, message: 'Corporate context not found' });
+    
+    // Get query parameters
+    const { risk, page = 1, limit = 10 } = req.query;
+    
+    // Build query for EV users under this corporate
+    const query = {
+      role: 'ev_user',
+      'credentials.isActive': true,
+      'roleSpecificData.evUserInfo': { $exists: true }
+    };
+    
+    // Filter by churn risk if specified
+    if (risk) {
+      query['roleSpecificData.evUserInfo.churnRisk'] = risk;
+    }
+    
+    // Execute query with pagination
+    const users = await User.find(query)
+      .select('personalInfo.firstName personalInfo.lastName personalInfo.email personalInfo.phone roleSpecificData.evUserInfo.churnRisk roleSpecificData.evUserInfo.churnProbability roleSpecificData.evUserInfo.lastPredictionDate')
+      .sort({ 'roleSpecificData.evUserInfo.churnProbability': -1 }) // Sort by highest probability first
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+    
+    const total = await User.countDocuments(query);
+    
+    // Format response data
+    const userData = users.map(user => ({
+      id: user._id,
+      firstName: user.personalInfo?.firstName || '',
+      lastName: user.personalInfo?.lastName || '',
+      email: user.personalInfo?.email || '',
+      phone: user.personalInfo?.phone || '',
+      churnRisk: user.roleSpecificData?.evUserInfo?.churnRisk || 'Low',
+      churnProbability: user.roleSpecificData?.evUserInfo?.churnProbability || 0,
+      lastPredictionDate: user.roleSpecificData?.evUserInfo?.lastPredictionDate || null
+    }));
+    
+    res.json({
+      success: true,
+      data: {
+        users: userData,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(total / limit),
+          total: total
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching churn risk users:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching churn risk users',
+      error: error.message
+    });
   }
 };

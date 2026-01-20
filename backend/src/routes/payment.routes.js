@@ -4,13 +4,22 @@ import {
   verifyPayment, 
   getPaymentStatus,
   listMyPayments,
-  downloadReceipt
+  downloadReceipt,
+  getPaymentDetails,
+  requestRefund,
+  handleWebhook,
+  getPaymentStatistics,
+  getRevenueBreakdown,
+  retryPayment
 } from '../controllers/payment.controller.js';
-import { requireAuth } from '../middlewares/auth.js';
+import { requireAuth, adminOnly } from '../middlewares/auth.js';
 
 const router = express.Router();
 
-// All payment routes require authentication
+// Webhook endpoint (no auth required, verified by signature)
+router.post('/webhook', handleWebhook);
+
+// All other payment routes require authentication
 router.use(requireAuth);
 
 // Create Razorpay order for booking payment
@@ -25,7 +34,20 @@ router.get('/status/:bookingId', getPaymentStatus);
 // List current user's payments
 router.get('/my', listMyPayments);
 
+// Get detailed payment information
+router.get('/details/:paymentId', getPaymentDetails);
+
+// Request refund for a payment
+router.post('/refund/:paymentId', requestRefund);
+
+// Retry failed payment
+router.post('/retry/:paymentId', retryPayment);
+
 // Download PDF receipt for a booking
 router.get('/receipt/:bookingId', downloadReceipt);
+
+// Admin routes
+router.get('/statistics', adminOnly, getPaymentStatistics);
+router.get('/revenue-breakdown', adminOnly, getRevenueBreakdown);
 
 export default router;

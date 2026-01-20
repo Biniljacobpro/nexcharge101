@@ -139,6 +139,40 @@ export const stationManagerService = {
       console.error('Error fetching maintenance predictions:', error);
       throw error;
     }
+  },
+
+  // Get sentiment analytics
+  getSentimentAnalytics: async (stationId = null) => {
+    try {
+      let url = `${API_BASE}/station-manager/analytics/sentiment`;
+      if (stationId) {
+        url += `?stationId=${stationId}`;
+      }
+      const response = await authFetch(url);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || 'Failed to fetch sentiment analytics');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching sentiment analytics:', error);
+      throw error;
+    }
+  },
+
+  // Get feedback for assigned stations
+  getFeedback: async () => {
+    try {
+      const response = await authFetch(`${API_BASE}/station-manager/feedback`);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || 'Failed to fetch feedback');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching feedback:', error);
+      throw error;
+    }
   }
 };
 

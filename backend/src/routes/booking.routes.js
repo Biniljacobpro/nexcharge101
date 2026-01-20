@@ -1,16 +1,19 @@
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.js';
+import { fraudDetectionMiddleware } from '../middlewares/fraudDetection.js';
 import { 
   createBooking, 
   getUserBookings, 
   cancelBooking, 
   updateBooking,
   getStationBookings,
+  getStationBookingsByDate,
   completeBooking,
   extendBooking,
   generateOTP,
   verifyOTPAndStartCharging,
-  stopCharging
+  stopCharging,
+  getChargingRecommendation
 } from '../controllers/booking.controller.js';
 
 const router = Router();
@@ -20,7 +23,9 @@ const router = Router();
 router.use(requireAuth);
 
 // User booking routes
-router.post('/', createBooking);
+router.post('/', fraudDetectionMiddleware, createBooking);
+router.get('/recommendation', getChargingRecommendation);
+router.post('/generate-otp', generateOTP);
 router.get('/my-bookings', getUserBookings);
 router.patch('/:bookingId/cancel', cancelBooking);
 router.patch('/:bookingId', updateBooking);
@@ -34,5 +39,8 @@ router.post('/:bookingId/stop-charging', stopCharging);
 
 // Station booking routes (for managers/owners)
 router.get('/station/:stationId', getStationBookings);
+
+// Timeline booking routes (for public users)
+router.get('/station/:stationId/timeline', getStationBookingsByDate);
 
 export default router;

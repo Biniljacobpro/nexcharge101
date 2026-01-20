@@ -3,6 +3,7 @@ import Station from '../models/station.model.js';
 import User from '../models/user.model.js';
 import { createBookingNotification } from './notification.controller.js';
 import { sendBookingConfirmationEmail, sendOTPEmail } from '../utils/emailService.js';
+import { generateCommissionFromBooking } from './commission.controller.js';
 
 // Create a new booking
 export const createBooking = async (req, res) => {
@@ -740,6 +741,14 @@ export const completeBooking = async (req, res) => {
       console.error('Error creating completion notification:', notificationError);
     }
 
+    // Generate commission automatically
+    try {
+      await generateCommissionFromBooking(booking._id);
+    } catch (commissionError) {
+      console.error('Error generating commission:', commissionError);
+      // Don't fail the booking completion if commission generation fails
+    }
+
     res.json({
       success: true,
       message: 'Booking completed successfully',
@@ -1094,6 +1103,63 @@ export const stopCharging = async (req, res) => {
 
   } catch (error) {
     console.error('Error stopping charging:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+
+// Get charging recommendation
+export const getChargingRecommendation = async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      message: 'Charging recommendation feature coming soon',
+      data: {}
+    });
+  } catch (error) {
+    console.error('Error getting charging recommendation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Get station bookings by date
+export const getStationBookingsByDate = async (req, res) => {
+  try {
+    const { stationId } = req.params;
+    const { date } = req.query;
+
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: 'Date parameter is required'
+      });
+    }
+
+    const startDate = new Date(date);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 1);
+
+    const bookings = await Booking.find({
+      stationId,
+      startTime: { $gte: startDate, $lt: endDate }
+    })
+      .populate('userId', 'personalInfo.firstName personalInfo.lastName personalInfo.email')
+      .populate('vehicleId', 'make model vehicleType')
+      .sort({ startTime: 1 });
+
+    res.json({
+      success: true,
+      data: bookings
+    });
+  } catch (error) {
+    console.error('Error getting station bookings by date:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

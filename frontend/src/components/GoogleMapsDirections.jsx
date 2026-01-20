@@ -37,11 +37,12 @@ const GoogleMapsDirections = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [userLocation, setUserLocation] = useState(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 
   const calculateRoute = useCallback(() => {
-    if (!destination || !window.google) return;
+    if (!destination || !window.google?.maps?.DirectionsService) return;
 
     setLoading(true);
     setError('');
@@ -94,10 +95,18 @@ const GoogleMapsDirections = ({
   };
 
   const handleMapLoad = useCallback(() => {
-    if (open && destination) {
+    setMapLoaded(true);
+    if (open && destination && window.google?.maps?.DirectionsService) {
       calculateRoute();
     }
   }, [open, destination, calculateRoute]);
+
+  // Trigger calculation when map is loaded and dialog opens
+  React.useEffect(() => {
+    if (open && mapLoaded && destination && window.google?.maps?.DirectionsService) {
+      calculateRoute();
+    }
+  }, [open, mapLoaded, destination, calculateRoute]);
 
   if (!apiKey) {
     return (
@@ -158,7 +167,11 @@ const GoogleMapsDirections = ({
             </Alert>
           )}
 
-          <LoadScript googleMapsApiKey={apiKey} libraries={GOOGLE_MAPS_LIBRARIES}>
+          <LoadScript 
+            googleMapsApiKey={apiKey} 
+            libraries={GOOGLE_MAPS_LIBRARIES}
+            onLoad={() => setMapLoaded(true)}
+          >
             <GoogleMap
               mapContainerStyle={mapContainerStyle}
               center={destination || defaultCenter}

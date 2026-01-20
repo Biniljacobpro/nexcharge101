@@ -13,8 +13,10 @@ import {
   getCorporateInfo,
   updateCorporateName,
   getCorporateUsers,
-  updateCorporateUserStatus
+  updateCorporateUserStatus,
+  getAllBookings
 } from '../controllers/corporate.controller.js';
+import churnRoutes from './corporate.churn.routes.js';
 
 const router = Router();
 
@@ -25,6 +27,7 @@ router.use(requireAuth, enforcePasswordChange);
 router.get('/dashboard', getDashboardData);
 router.get('/analytics', getAnalytics);
 router.get('/bookings/recent', getRecentBookings);
+router.get('/bookings/all', getAllBookings);
 
 // Corporate profile/info routes
 router.get('/info', getCorporateInfo);
@@ -43,5 +46,8 @@ router.patch('/stations/:id/status', updateCorporateStationStatus);
 // User management routes
 router.get('/users', getCorporateUsers);
 router.put('/users/:id/status', updateCorporateUserStatus);
+
+// Churn risk routes
+router.use('/', churnRoutes);
 
 export default router;

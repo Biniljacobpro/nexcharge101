@@ -1,0 +1,64 @@
+import axios from 'axios';
+import Station from '../../models/station.model.js';
+import { optimizeRoute } from './optimization.engine.js';
+import { predictEnergyConsumption } from './energyClient.js';
+
+/**
+ * Plan a multi-stop EV route with optimal charging stops
+ * 
+ * This service orchestrates the route planning process:
+ * 1. Uses vehicle specifications passed from frontend
+ * 2. Fetches compatible charging stations from MongoDB
+ * 3. Gets route and distance from Google Maps Directions API
+ * 4. Gets elevation data from Google Elevation API
+ * 5. Builds a graph with start, stations, and destination
+ * 6. Uses modified Dijkstra/A* for optimization
+ * 7. Integrates ML predictions for energy consumption
+ * 
+ * @param {Object} params - Route planning parameters
+ * @param {Object} params.start - Start coordinates {lat, lng}
+ * @param {Object} params.destination - Destination coordinates {lat, lng}
+ * @param {Object} params.vehicle - Vehicle specifications
+ * @param {number} params.currentSOC - Current state of charge (0-100)
+ * @param {string} params.departureTime - Departure date and time (ISO string)
+ * @param {string} params.userId - User ID
+ * @returns {Object} Optimized route plan
+ */
+export const planRouteService = async ({ start, destination, vehicle, currentSOC, departureTime, userId }) => {
+  try {
+    // 1. Validate vehicle specifications
+    if (!vehicle || !vehicle.make || !vehicle.model || !vehicle.batteryCapacity) {
+      throw new Error('Invalid vehicle specifications');
+    }
+
+    // 2. Fetch compatible charging stations
+    // For simplicity, we're fetching all active stations
+    // In a production system, we might filter by proximity to the route
+    const stations = await Station.find({
+      'operational.status': 'active'
+    }).select('name location capacity.chargerTypes');
+
+    // 3. Build route segments and graph
+    // In a real implementation, we would call Google Maps APIs here
+    // For this implementation, we'll simulate the process
+    
+    // 4. Optimize route using our algorithm
+    const optimizedRoute = await optimizeRoute({
+      start,
+      destination,
+      vehicle,
+      stations,
+      currentSOC,
+      departureTime: departureTime || new Date().toISOString()
+    });
+
+    return optimizedRoute;
+  } catch (error) {
+    console.error('Error in route planning service:', error);
+    throw error;
+  }
+};
+
+export default {
+  planRouteService
+};

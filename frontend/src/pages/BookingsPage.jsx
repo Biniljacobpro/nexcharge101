@@ -26,6 +26,11 @@ const BookingsPage = () => {
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [actionLoading, setActionLoading] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [bookingToCancel, setBookingToCancel] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [showAllCancelled, setShowAllCancelled] = useState(false);
 
   const loadBookings = async () => {
     try {
@@ -61,6 +66,23 @@ const BookingsPage = () => {
       setSnackbar({ open: true, message: 'Failed to complete booking', severity: 'error' });
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleCancelBooking = async () => {
+    if (!bookingToCancel) return;
+    
+    try {
+      setCancelLoading(true);
+      await cancelBookingApi(bookingToCancel._id, 'User requested');
+      setSnackbar({ open: true, message: 'Booking cancelled successfully! Refund will be processed within 24 hours.', severity: 'success' });
+      await loadBookings();
+      setCancelDialogOpen(false);
+      setBookingToCancel(null);
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message || 'Failed to cancel booking', severity: 'error' });
+    } finally {
+      setCancelLoading(false);
     }
   };
 
@@ -175,16 +197,10 @@ const BookingsPage = () => {
                         color="error"
                         variant="outlined"
                         startIcon={<CancelIcon />}
-                        onClick={async (e) => {
+                        onClick={(e) => {
                           e.stopPropagation();
-                          const ok = window.confirm('Are you sure you want to cancel this booking? The slot will be made available again.');
-                          if (!ok) return;
-                          try {
-                            await cancelBookingApi(nextBooking._id, 'User requested');
-                            await loadBookings();
-                          } catch (e) {
-                            alert(e.message || 'Failed to cancel booking');
-                          }
+                          setBookingToCancel(nextBooking);
+                          setCancelDialogOpen(true);
                         }}
                       >
                         Cancel
@@ -250,18 +266,31 @@ const BookingsPage = () => {
             {past.length === 0 ? (
               <Typography variant="body2" color="text.secondary">No past bookings.</Typography>
             ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                {past.map((b) => (
-                  <Paper key={b._id} variant="outlined" sx={{ p: 2, cursor: 'pointer', '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' } }} onClick={() => openBookingDetails(b)}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                      <Box>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{b.stationId?.name || 'Station'}</Typography>
-                        <Typography variant="caption" color="text.secondary">{new Date(b.startTime).toLocaleString()} → {new Date(b.endTime).toLocaleString()}</Typography>
+              <Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {(showAllHistory ? past : past.slice(0, 5)).map((b) => (
+                    <Paper key={b._id} variant="outlined" sx={{ p: 2, cursor: 'pointer', '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' } }} onClick={() => openBookingDetails(b)}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{b.stationId?.name || 'Station'}</Typography>
+                          <Typography variant="caption" color="text.secondary">{new Date(b.startTime).toLocaleString()} → {new Date(b.endTime).toLocaleString()}</Typography>
+                        </Box>
+                        <Chip size="small" label={b.status === 'completed' ? 'completed' : 'past'} color={b.status === 'completed' ? 'success' : 'default'} />
                       </Box>
-                      <Chip size="small" label={b.status === 'completed' ? 'completed' : 'past'} color={b.status === 'completed' ? 'success' : 'default'} />
-                    </Box>
-                  </Paper>
-                ))}
+                    </Paper>
+                  ))}
+                </Box>
+                {past.length > 5 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                    <Button 
+                      size="small" 
+                      onClick={() => setShowAllHistory(!showAllHistory)}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      {showAllHistory ? 'Show Less' : `More (${past.length - 5} more)`}
+                    </Button>
+                  </Box>
+                )}
               </Box>
             )}
           </CardContent>
@@ -277,18 +306,31 @@ const BookingsPage = () => {
             {cancelled.length === 0 ? (
               <Typography variant="body2" color="text.secondary">No cancelled bookings.</Typography>
             ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                {cancelled.map((b) => (
-                  <Paper key={b._id} variant="outlined" sx={{ p: 2, cursor: 'pointer', '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' } }} onClick={() => openBookingDetails(b)}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                      <Box>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{b.stationId?.name || 'Station'}</Typography>
-                        <Typography variant="caption" color="text.secondary">{new Date(b.startTime).toLocaleString()} → {new Date(b.endTime).toLocaleString()}</Typography>
+              <Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {(showAllCancelled ? cancelled : cancelled.slice(0, 5)).map((b) => (
+                    <Paper key={b._id} variant="outlined" sx={{ p: 2, cursor: 'pointer', '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' } }} onClick={() => openBookingDetails(b)}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                        <Box>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{b.stationId?.name || 'Station'}</Typography>
+                          <Typography variant="caption" color="text.secondary">{new Date(b.startTime).toLocaleString()} → {new Date(b.endTime).toLocaleString()}</Typography>
+                        </Box>
+                        <Chip size="small" color="error" label="cancelled" />
                       </Box>
-                      <Chip size="small" color="error" label="cancelled" />
-                    </Box>
-                  </Paper>
-                ))}
+                    </Paper>
+                  ))}
+                </Box>
+                {cancelled.length > 5 && (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                    <Button 
+                      size="small" 
+                      onClick={() => setShowAllCancelled(!showAllCancelled)}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      {showAllCancelled ? 'Show Less' : `More (${cancelled.length - 5} more)`}
+                    </Button>
+                  </Box>
+                )}
               </Box>
             )}
           </CardContent>
@@ -377,6 +419,63 @@ const BookingsPage = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Cancel Booking Dialog */}
+      <Dialog 
+        open={cancelDialogOpen} 
+        onClose={() => !cancelLoading && setCancelDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <CancelIcon color="error" />
+          Cancel Booking
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mb: 2 }}>
+            Are you sure you want to cancel this booking?
+          </Typography>
+          {bookingToCancel && (
+            <Paper sx={{ p: 2, bgcolor: '#f8f9fa', mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                {bookingToCancel.stationId?.name || 'Station'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {new Date(bookingToCancel.startTime).toLocaleString()} → {new Date(bookingToCancel.endTime).toLocaleString()}
+              </Typography>
+              {bookingToCancel.price && (
+                <Typography variant="body2" sx={{ mt: 1, fontWeight: 500 }}>
+                  Amount: ₹{bookingToCancel.price}
+                </Typography>
+              )}
+            </Paper>
+          )}
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+              Cancellation Policy:
+            </Typography>
+            <Typography variant="body2">
+              • Cancellations are allowed up to 20 minutes before the start time<br />
+              • The paid amount will be refunded within 24 hours<br />
+              • The booking slot will be made available for other users
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelDialogOpen(false)} disabled={cancelLoading}>
+            No, Keep Booking
+          </Button>
+          <Button 
+            onClick={handleCancelBooking} 
+            color="error" 
+            variant="contained"
+            disabled={cancelLoading}
+            startIcon={cancelLoading ? <CircularProgress size={16} /> : <CancelIcon />}
+          >
+            {cancelLoading ? 'Cancelling...' : 'Yes, Cancel Booking'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Footer />
     </Box>

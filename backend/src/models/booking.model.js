@@ -134,6 +134,12 @@ const BookingSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  
+  // Fraud detection flag
+  isFraudulentFlag: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

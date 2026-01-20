@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middlewares/auth.js';
-import { overview, liveStats, listUsers, addCorporateAdmin, listCorporateAdmins, updateCorporateAdminStatus, listStations, updateStationStatus, updateStationManager, updateUserStatus } from '../controllers/admin.controller.js';
+import { overview, liveStats, listUsers, addCorporateAdmin, listCorporateAdmins, updateCorporateAdminStatus, listStations, updateStationStatus, updateStationManager, updateUserStatus, getFraudLogs, getReportsData } from '../controllers/admin.controller.js';
 
 const router = Router();
 
@@ -19,6 +19,10 @@ router.get('/stations', listStations);
 router.patch('/stations/:id/status', updateStationStatus);
 router.patch('/stations/:id/manager', updateStationManager);
 
+// Fraud monitoring
+router.get('/fraud-logs', getFraudLogs);
+
+// Reports
+router.get('/reports', getReportsData);
+
 export default router;
-
-

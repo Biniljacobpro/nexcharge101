@@ -22,6 +22,8 @@ import notificationRoutes from './routes/notification.routes.js';
 import reviewRoutes from './routes/review.routes.js';
 import uploadRoutes from '../routes/uploadExample.js';
 import maintenanceRoutes from './routes/maintenance.routes.js';
+import routePlannerRoutes from './routes/routePlanner.routes.js';
+import commissionRoutes from './routes/commission.routes.js';
 
 // Ensure env is loaded from backend/.env or projectRoot/.env
 const backendEnv = path.resolve(process.cwd(), '.env');
@@ -100,6 +102,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/station-manager', maintenanceRoutes);
+app.use('/api/route-planner', routePlannerRoutes);
+app.use('/api/commissions', commissionRoutes);
 
 // Error handler
 // eslint-disable-next-line no-unused-vars

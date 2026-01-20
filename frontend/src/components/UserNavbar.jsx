@@ -54,7 +54,13 @@ const UserNavbar = ({ user }) => {
     navigate('/home');
   };
 
-  const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`;
+  const initials = (user?.firstName && user?.lastName) 
+    ? `${user.firstName[0]}${user.lastName[0]}`
+    : user?.firstName 
+      ? user.firstName[0]
+      : user?.lastName
+        ? user.lastName[0]
+        : 'U';
 
   return (
     <AppBar 

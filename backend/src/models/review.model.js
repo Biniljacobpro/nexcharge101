@@ -29,7 +29,19 @@ const ReviewSchema = new mongoose.Schema({
     trim: true,
     maxlength: 500
   },
-  
+  sentimentClassification: {
+    type: String,
+    enum: ['Positive', 'Neutral', 'Negative'],
+    default: 'Neutral', // Default to Neutral if classification fails or is pending
+    index: true         // Add an index for faster lookups/filtering in reports
+  },
+  sentimentConfidence: {
+    type: Number,
+    min: 0,
+    max: 1,
+    default: 0.5
+  },
+
   // Likes and dislikes
   likes: {
     type: Number,

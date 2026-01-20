@@ -22,6 +22,9 @@ import StationsPage from './pages/StationsPage';
 import BookingsPage from './pages/BookingsPage';
 import PaymentsPage from './pages/PaymentsPage';
 import ForgotPassword from './pages/ForgotPassword';
+import RoutePlannerPage from './pages/RoutePlannerPage';
+import FranchiseCommissionsPage from './pages/FranchiseCommissionsPage';
+import CorporateCommissionsPage from './pages/CorporateCommissionsPage';
 
 function App() {
   return (
@@ -36,18 +39,21 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/home" element={<UserHomePage />} />
-          <Route path="/stations" element={<StationsPage />} />
+            <Route path="/route-planner" element={<RoutePlannerPage />} />
+            <Route path="/stations" element={<StationsPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/bookings" element={<BookingsPage />} />
-          <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/apply-corporate" element={<CorporateApplicationPage />} />
             <Route path="/corporate/dashboard" element={<CorporateDashboard />} />
+            <Route path="/corporate/commissions" element={<CorporateCommissionsPage />} />
             <Route path="/franchise/dashboard" element={<FranchiseOwnerDashboard />} />
+            <Route path="/franchise/commissions" element={<FranchiseCommissionsPage />} />
             <Route path="/station-manager/dashboard" element={<StationManagerDashboard />} />
             <Route path="/station-manager/stations/:id" element={<StationManagerStationDetails />} />
             <Route path="/first-login-reset" element={<FirstLoginReset />} />
             <Route path="/station-manager/password-reset" element={<StationManagerPasswordReset />} />
-          <Route path="/stations/:id" element={<StationDetails />} />
+            <Route path="/stations/:id" element={<StationDetails />} />
           </Routes>
         </AnimatePresence>
       </Router>

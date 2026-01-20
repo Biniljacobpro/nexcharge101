@@ -2,11 +2,13 @@ import mongoose from 'mongoose';
 import Review from '../models/review.model.js';
 import Station from '../models/station.model.js';
 import Booking from '../models/booking.model.js';
+import { classifySentimentWithConfidence } from '../services/sentimentClassifier.js';
 
 // GET /api/reviews/station/:stationId - Get all reviews for a station
 export const getStationReviews = async (req, res) => {
   try {
     const { stationId } = req.params;
+    const { sentiment } = req.query; // Get sentiment filter from query params
     
     // Check if station exists
     const station = await Station.findById(stationId);
@@ -14,8 +16,14 @@ export const getStationReviews = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Station not found' });
     }
     
-    // Get all reviews for this station
-    const reviews = await Review.find({ stationId })
+    // Build query filter
+    const filter = { stationId };
+    if (sentiment) {
+      filter.sentimentClassification = sentiment;
+    }
+    
+    // Get reviews for this station with optional sentiment filter
+    const reviews = await Review.find(filter)
       .populate('userId', 'personalInfo.firstName personalInfo.lastName personalInfo.profileImage')
       .sort({ createdAt: -1 });
     
@@ -71,12 +79,24 @@ export const createReview = async (req, res) => {
       });
     }
     
+    // Classify the sentiment of the review comment with confidence
+    const sentimentResult = classifySentimentWithConfidence(comment || '');
+    const sentiment = sentimentResult.sentiment;
+    const confidence = sentimentResult.confidence;
+    
+    // Log low confidence classifications for monitoring
+    if (confidence < 0.7) {
+      console.log(`Low confidence sentiment classification (${confidence.toFixed(2)}) for review: "${comment}" -> ${sentiment}`);
+    }
+    
     // Create the review
     const review = new Review({
       stationId,
       userId,
       rating,
       comment: comment || '',
+      sentimentClassification: sentiment,
+      sentimentConfidence: confidence, // Store confidence score if you want to add this field to the model
       bookingId,
       likes: 0,
       dislikes: 0,
@@ -129,7 +149,11 @@ export const updateReview = async (req, res) => {
     
     // Update the review
     if (rating) review.rating = rating;
-    if (comment !== undefined) review.comment = comment;
+    if (comment !== undefined) {
+      review.comment = comment;
+      // Reclassify sentiment when comment is updated
+      review.sentimentClassification = classifySentiment(comment);
+    }
     
     await review.save();
     

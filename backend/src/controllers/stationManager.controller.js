@@ -1,6 +1,7 @@
 import Station from '../models/station.model.js';
 import Booking from '../models/booking.model.js';
 import User from '../models/user.model.js';
+import Review from '../models/review.model.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -463,10 +464,54 @@ export const updateMaintenanceTask = async (req, res) => {
 };
 
 export const getFeedback = async (req, res) => {
-  res.json({
-    success: true,
-    data: []
-  });
+  try {
+    const userId = req.user.sub;
+    
+    // Get user's assigned stations
+    const user = await User.findById(userId);
+    const assignedStations = user?.roleSpecificData?.stationManagerInfo?.assignedStations || [];
+    
+    if (assignedStations.length === 0) {
+      return res.json({
+        success: true,
+        data: []
+      });
+    }
+    
+    // Get feedback for assigned stations
+    const feedback = await Review.find({
+      stationId: { $in: assignedStations }
+    })
+    .sort({ createdAt: -1 })
+    .populate('userId', 'personalInfo.firstName personalInfo.lastName personalInfo.email')
+    .populate('stationId', 'name')
+    .lean();
+    
+    // Format feedback data
+    const formattedFeedback = feedback.map(review => ({
+      id: review._id,
+      user: `${review.userId?.personalInfo?.firstName || ''} ${review.userId?.personalInfo?.lastName || ''}`.trim() || 'Anonymous User',
+      userEmail: review.userId?.personalInfo?.email || '',
+      stationName: review.stationId?.name || 'Unknown Station',
+      rating: review.rating,
+      comment: review.comment,
+      createdAt: review.createdAt,
+      sentimentClassification: review.sentimentClassification,
+      status: 'new' // Default status, can be updated based on business logic
+    }));
+    
+    res.json({
+      success: true,
+      data: formattedFeedback
+    });
+  } catch (error) {
+    console.error('Error fetching feedback:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch feedback',
+      error: error.message
+    });
+  }
 };
 
 export const respondToFeedback = async (req, res) => {
@@ -654,4 +699,135 @@ export const uploadStationImages = async (req, res) => {
     console.error('Error uploading images:', error);
     return res.status(500).json({ success: false, message: 'Failed to upload images', error: error.message });
   }
+};
+
+// Get sentiment analytics for reviews
+export const getSentimentAnalytics = async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { stationId } = req.query;
+    
+    // Get user's assigned stations
+    const user = await User.findById(userId);
+    const assignedStations = user?.roleSpecificData?.stationManagerInfo?.assignedStations || [];
+    
+    // If a specific stationId is provided, check if user has access to it
+    if (stationId) {
+      if (!assignedStations.map(String).includes(String(stationId))) {
+        return res.status(403).json({ success: false, message: 'Access denied to this station' });
+      }
+      
+      // Get sentiment distribution for the specific station
+      const sentimentDistribution = await Review.aggregate([
+        { $match: { stationId: mongoose.Types.ObjectId(stationId) } },
+        { $group: { _id: '$sentimentClassification', count: { $sum: 1 } } }
+      ]);
+      
+      // Get average confidence scores
+      const confidenceStats = await Review.aggregate([
+        { $match: { stationId: mongoose.Types.ObjectId(stationId) } },
+        { $group: { 
+            _id: '$sentimentClassification', 
+            count: { $sum: 1 },
+            avgConfidence: { $avg: '$sentimentConfidence' },
+            minConfidence: { $min: '$sentimentConfidence' },
+            maxConfidence: { $max: '$sentimentConfidence' }
+          } 
+        }
+      ]);
+      
+      // Format the result
+      const result = {
+        Positive: 0,
+        Neutral: 0,
+        Negative: 0,
+        confidence: {
+          Positive: { count: 0, avg: 0, min: 0, max: 0 },
+          Neutral: { count: 0, avg: 0, min: 0, max: 0 },
+          Negative: { count: 0, avg: 0, min: 0, max: 0 }
+        }
+      };
+      
+      sentimentDistribution.forEach(item => {
+        result[item._id] = item.count;
+      });
+      
+      confidenceStats.forEach(item => {
+        result.confidence[item._id] = {
+          count: item.count,
+          avg: item.avgConfidence,
+          min: item.minConfidence,
+          max: item.maxConfidence
+        };
+      });
+      
+      return res.json({ success: true, data: result });
+    }
+    
+    // Get sentiment distribution for all assigned stations
+    const sentimentDistribution = await Review.aggregate([
+      { $match: { stationId: { $in: assignedStations.map(id => mongoose.Types.ObjectId(id)) } } },
+      { $group: { _id: '$sentimentClassification', count: { $sum: 1 } } }
+    ]);
+    
+    // Get average confidence scores
+    const confidenceStats = await Review.aggregate([
+      { $match: { stationId: { $in: assignedStations.map(id => mongoose.Types.ObjectId(id)) } } },
+      { $group: { 
+          _id: '$sentimentClassification', 
+          count: { $sum: 1 },
+          avgConfidence: { $avg: '$sentimentConfidence' },
+          minConfidence: { $min: '$sentimentConfidence' },
+          maxConfidence: { $max: '$sentimentConfidence' }
+        } 
+      }
+    ]);
+    
+    // Format the result
+    const result = {
+      Positive: 0,
+      Neutral: 0,
+      Negative: 0,
+      confidence: {
+        Positive: { count: 0, avg: 0, min: 0, max: 0 },
+        Neutral: { count: 0, avg: 0, min: 0, max: 0 },
+        Negative: { count: 0, avg: 0, min: 0, max: 0 }
+      }
+    };
+    
+    sentimentDistribution.forEach(item => {
+      result[item._id] = item.count;
+    });
+    
+    confidenceStats.forEach(item => {
+      result.confidence[item._id] = {
+        count: item.count,
+        avg: item.avgConfidence,
+        min: item.minConfidence,
+        max: item.maxConfidence
+      };
+    });
+    
+    return res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Error fetching sentiment analytics:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch sentiment analytics', error: error.message });
+  }
+};
+
+export default {
+  getDashboardData,
+  getBookings,
+  updateBookingStatus,
+  getReports,
+  getMaintenanceSchedule,
+  createMaintenanceTask,
+  updateMaintenanceTask,
+  getFeedback,
+  respondToFeedback,
+  getStationDetails,
+  updateStationDetails,
+  uploadStationImages,
+  deleteStationImage,
+  getSentimentAnalytics
 };

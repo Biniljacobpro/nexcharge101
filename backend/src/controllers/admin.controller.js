@@ -1,5 +1,6 @@
 import User from '../models/user.model.js';
 import Booking from '../models/booking.model.js';
+import FraudAttemptLog from '../models/fraudAttemptLog.model.js';
 import bcryptjs from 'bcryptjs';
 import { sendCorporateAdminWelcomeEmail } from '../utils/emailService.js';
 import Corporate from '../models/corporate.model.js';
@@ -532,4 +533,473 @@ const generateSecurePassword = () => {
 	return password;
 };
 
+// Admin: Get fraud attempt logs with filtering and pagination
+export const getFraudLogs = async (req, res) => {
+  try {
+    const { classification, status, page = 1, limit = 10 } = req.query;
+    
+    // Build query
+    const query = {};
+    if (classification) query.classification = classification;
+    if (status) query.status = status;
+    
+    // Get logs with pagination
+    const logs = await FraudAttemptLog.find(query)
+      .populate('userId', 'personalInfo.firstName personalInfo.lastName personalInfo.email')
+      .populate('stationId', 'name')
+      .sort({ attemptTime: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+    
+    const total = await FraudAttemptLog.countDocuments(query);
+    
+    // Format response data
+    const data = logs.map(log => ({
+      id: log._id,
+      attemptTime: log.attemptTime,
+      user: log.userId ? {
+        id: log.userId._id,
+        name: `${log.userId.personalInfo.firstName} ${log.userId.personalInfo.lastName}`,
+        email: log.userId.personalInfo.email
+      } : null,
+      station: log.stationId ? {
+        id: log.stationId._id,
+        name: log.stationId.name
+      } : null,
+      classification: log.classification,
+      decisionPath: log.decisionPath,
+      status: log.status
+    }));
+    
+    return res.json({
+      success: true,
+      data,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching fraud logs:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch fraud logs', 
+      error: error.message 
+    });
+  }
+};
 
+// Admin: Get comprehensive reports data
+export const getReportsData = async (req, res) => {
+  try {
+    const { reportType, startDate, endDate } = req.query;
+    
+    // Parse dates or set defaults
+    const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+    const end = endDate ? new Date(endDate) : new Date();
+    
+    let reportData = {};
+    
+    switch (reportType) {
+      case 'revenue':
+        reportData = await getRevenueReport(start, end);
+        break;
+      case 'usage':
+        reportData = await getUsageReport(start, end);
+        break;
+      case 'user':
+        reportData = await getUserReport(start, end);
+        break;
+      case 'station':
+        reportData = await getStationReport(start, end);
+        break;
+      default:
+        // Return all report types if none specified
+        reportData = {
+          revenue: await getRevenueReport(start, end),
+          usage: await getUsageReport(start, end),
+          user: await getUserReport(start, end),
+          station: await getStationReport(start, end)
+        };
+    }
+    
+    return res.json({
+      success: true,
+      data: reportData,
+      period: {
+        start,
+        end
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching reports data:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch reports data', 
+      error: error.message 
+    });
+  }
+};
+
+// Helper function to get revenue report data
+const getRevenueReport = async (startDate, endDate) => {
+  try {
+    // Total revenue and payments
+    const revenueAgg = await Booking.aggregate([
+      { 
+        $match: { 
+          'payment.paymentStatus': 'completed',
+          'payment.paymentDate': { $gte: startDate, $lte: endDate }
+        } 
+      },
+      { 
+        $group: { 
+          _id: null, 
+          totalRevenue: { $sum: { $ifNull: ['$payment.paidAmount', 0] } }, 
+          totalPayments: { $sum: 1 },
+          avgTransactionValue: { $avg: { $ifNull: ['$payment.paidAmount', 0] } }
+        } 
+      }
+    ]);
+    
+    // Daily revenue trend
+    const dailyRevenueAgg = await Booking.aggregate([
+      { 
+        $match: { 
+          'payment.paymentStatus': 'completed',
+          'payment.paymentDate': { $gte: startDate, $lte: endDate }
+        } 
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$payment.paymentDate' },
+            month: { $month: '$payment.paymentDate' },
+            day: { $dayOfMonth: '$payment.paymentDate' }
+          },
+          dailyRevenue: { $sum: { $ifNull: ['$payment.paidAmount', 0] } },
+          transactionCount: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
+    ]);
+    
+    // Revenue by station
+    const stationRevenueAgg = await Booking.aggregate([
+      { 
+        $match: { 
+          'payment.paymentStatus': 'completed',
+          'payment.paymentDate': { $gte: startDate, $lte: endDate }
+        } 
+      },
+      {
+        $lookup: {
+          from: 'stations',
+          localField: 'stationId',
+          foreignField: '_id',
+          as: 'station'
+        }
+      },
+      {
+        $unwind: '$station'
+      },
+      {
+        $group: {
+          _id: '$station.name',
+          revenue: { $sum: { $ifNull: ['$payment.paidAmount', 0] } },
+          bookings: { $sum: 1 }
+        }
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 10 } // Top 10 stations
+    ]);
+    
+    return {
+      summary: {
+        totalRevenue: revenueAgg?.[0]?.totalRevenue || 0,
+        totalTransactions: revenueAgg?.[0]?.totalPayments || 0,
+        averageTransactionValue: revenueAgg?.[0]?.avgTransactionValue || 0
+      },
+      dailyTrend: dailyRevenueAgg.map(item => ({
+        date: `${item._id.year}-${item._id.month.toString().padStart(2, '0')}-${item._id.day.toString().padStart(2, '0')}`,
+        revenue: item.dailyRevenue,
+        transactions: item.transactionCount
+      })),
+      topStations: stationRevenueAgg.map(item => ({
+        stationName: item._id,
+        revenue: item.revenue,
+        bookings: item.bookings
+      }))
+    };
+  } catch (error) {
+    console.error('Error in getRevenueReport:', error);
+    return {
+      summary: { totalRevenue: 0, totalTransactions: 0, averageTransactionValue: 0 },
+      dailyTrend: [],
+      topStations: []
+    };
+  }
+};
+
+// Helper function to get usage report data
+const getUsageReport = async (startDate, endDate) => {
+  try {
+    // Total bookings and status distribution
+    const bookingStatusAgg = await Booking.aggregate([
+      { 
+        $match: { 
+          createdAt: { $gte: startDate, $lte: endDate }
+        } 
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Hourly usage pattern
+    const hourlyUsageAgg = await Booking.aggregate([
+      { 
+        $match: { 
+          createdAt: { $gte: startDate, $lte: endDate }
+        } 
+      },
+      {
+        $group: {
+          _id: { $hour: '$createdAt' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id': 1 } }
+    ]);
+    
+    // Average session duration
+    const durationAgg = await Booking.aggregate([
+      { 
+        $match: { 
+          status: 'completed',
+          startTime: { $exists: true },
+          endTime: { $exists: true },
+          createdAt: { $gte: startDate, $lte: endDate }
+        } 
+      },
+      {
+        $project: {
+          durationMinutes: {
+            $divide: [
+              { $subtract: ['$endTime', '$startTime'] },
+              60000 // Convert milliseconds to minutes
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          avgDuration: { $avg: '$durationMinutes' },
+          minDuration: { $min: '$durationMinutes' },
+          maxDuration: { $max: '$durationMinutes' }
+        }
+      }
+    ]);
+    
+    return {
+      totalBookings: bookingStatusAgg.reduce((sum, item) => sum + item.count, 0),
+      statusDistribution: bookingStatusAgg.map(item => ({
+        status: item._id,
+        count: item.count
+      })),
+      hourlyPattern: hourlyUsageAgg.map(item => ({
+        hour: item._id,
+        bookings: item.count
+      })),
+      sessionDuration: {
+        average: durationAgg?.[0]?.avgDuration || 0,
+        minimum: durationAgg?.[0]?.minDuration || 0,
+        maximum: durationAgg?.[0]?.maxDuration || 0
+      }
+    };
+  } catch (error) {
+    console.error('Error in getUsageReport:', error);
+    return {
+      totalBookings: 0,
+      statusDistribution: [],
+      hourlyPattern: [],
+      sessionDuration: { average: 0, minimum: 0, maximum: 0 }
+    };
+  }
+};
+
+// Helper function to get user report data
+const getUserReport = async (startDate, endDate) => {
+  try {
+    // New user registrations
+    const newUserAgg = await User.aggregate([
+      { 
+        $match: { 
+          createdAt: { $gte: startDate, $lte: endDate }
+        } 
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' },
+            day: { $dayOfMonth: '$createdAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
+    ]);
+    
+    // User role distribution
+    const roleDistributionAgg = await User.aggregate([
+      {
+        $group: {
+          _id: '$role',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Active users (users with bookings in the period)
+    const activeUsersCount = await Booking.distinct('userId', {
+      createdAt: { $gte: startDate, $lte: endDate }
+    }).then(ids => ids.length);
+    
+    return {
+      newUserRegistrations: newUserAgg.map(item => ({
+        date: `${item._id.year}-${item._id.month.toString().padStart(2, '0')}-${item._id.day.toString().padStart(2, '0')}`,
+        count: item.count
+      })),
+      roleDistribution: roleDistributionAgg.map(item => ({
+        role: item._id,
+        count: item.count
+      })),
+      activeUsers: activeUsersCount,
+      totalUsers: await User.countDocuments()
+    };
+  } catch (error) {
+    console.error('Error in getUserReport:', error);
+    return {
+      newUserRegistrations: [],
+      roleDistribution: [],
+      activeUsers: 0,
+      totalUsers: 0
+    };
+  }
+};
+
+// Helper function to get station report data
+const getStationReport = async (startDate, endDate) => {
+  try {
+    // Station status distribution
+    const stationStatusAgg = await Station.aggregate([
+      {
+        $group: {
+          _id: '$operational.status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Stations by corporate/franchise
+    const ownershipAgg = await Station.aggregate([
+      {
+        $group: {
+          _id: {
+            $cond: [
+              { $ne: ['$corporateId', null] },
+              'Corporate',
+              { $cond: [
+                { $ne: ['$franchiseId', null] },
+                'Franchise',
+                'Independent'
+              ]}
+            ]
+          },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Station capacity utilization (based on bookings)
+    const stationUtilizationAgg = await Booking.aggregate([
+      { 
+        $match: { 
+          createdAt: { $gte: startDate, $lte: endDate }
+        } 
+      },
+      {
+        $group: {
+          _id: '$stationId',
+          bookingCount: { $sum: 1 }
+        }
+      },
+      {
+        $lookup: {
+          from: 'stations',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'station'
+        }
+      },
+      {
+        $unwind: '$station'
+      },
+      {
+        $project: {
+          stationName: '$station.name',
+          bookingCount: 1,
+          capacity: { $ifNull: ['$station.capacity.totalChargers', 0] }
+        }
+      },
+      {
+        $match: {
+          capacity: { $gt: 0 }
+        }
+      },
+      {
+        $project: {
+          stationName: 1,
+          utilizationRate: {
+            $multiply: [
+              { $divide: ['$bookingCount', { $multiply: ['$capacity', 30] }] }, // Assume 30 days in period
+              100
+            ]
+          }
+        }
+      },
+      { $sort: { utilizationRate: -1 } },
+      { $limit: 10 } // Top 10 stations by utilization
+    ]);
+    
+    return {
+      statusDistribution: stationStatusAgg.map(item => ({
+        status: item._id,
+        count: item.count
+      })),
+      ownershipDistribution: ownershipAgg.map(item => ({
+        ownership: item._id,
+        count: item.count
+      })),
+      topUtilizedStations: stationUtilizationAgg.map(item => ({
+        stationName: item.stationName,
+        utilizationRate: item.utilizationRate
+      })),
+      totalStations: await Station.countDocuments()
+    };
+  } catch (error) {
+    console.error('Error in getStationReport:', error);
+    return {
+      statusDistribution: [],
+      ownershipDistribution: [],
+      topUtilizedStations: [],
+      totalStations: 0
+    };
+  }
+};

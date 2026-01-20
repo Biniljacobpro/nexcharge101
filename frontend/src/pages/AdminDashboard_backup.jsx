@@ -2772,7 +2772,7 @@ const AdminDashboard = () => {
                                       )}
                                     </TableCell>
                                   </TableRow>
-                                ))}
+                                )))}
                               </TableBody>
                         </Table>
                       </TableContainer>

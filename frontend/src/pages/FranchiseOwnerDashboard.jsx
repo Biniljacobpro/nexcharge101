@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import FranchiseCommissionsPage from './FranchiseCommissionsPage';
 import {
   Box,
   Drawer,
@@ -54,8 +55,6 @@ import {
   EvStation,
   EvStation as StationIcon,
   Analytics as AnalyticsIcon,
-  Security as ComplianceIcon,
-  Campaign as PromotionIcon,
   Person as ProfileIcon,
   Logout as LogoutIcon,
   Menu as MenuIcon,
@@ -103,10 +102,10 @@ const navigationItems = [
   { id: 'stations', label: 'Station Management', icon: <StationIcon />, description: 'Add and manage charging stations' },
   { id: 'managers', label: 'Manager Management', icon: <People />, description: 'Add and manage station managers' },
   { id: 'analytics', label: 'Analytics', icon: <AnalyticsIcon />, description: 'Monitor uptime, usage, and revenue trends' },
-  { id: 'compliance', label: 'Compliance', icon: <ComplianceIcon />, description: 'Ensure stations follow operational guidelines' },
-  { id: 'promotions', label: 'Promotion Management', icon: <PromotionIcon />, description: 'Push franchise-wide offers' },
+  { id: 'commissions', label: 'Commissions', icon: <MoneyIcon />, description: 'View and track commission earnings' },
   { id: 'profile', label: 'Profile Settings', icon: <ProfileIcon />, description: 'Manage account and preferences' }
 ];
+
 
 const FranchiseOwnerDashboard = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -2152,224 +2151,9 @@ const FranchiseOwnerDashboard = () => {
     </Box>
   );
 
-  const renderCompliance = () => (
-    <Box>
-      <Typography variant="h4" gutterBottom sx={{ color: '#2d3436', fontWeight: 'bold' }}>
-        Compliance & Guidelines
-      </Typography>
-      <Typography variant="subtitle1" sx={{ color: '#636e72', mb: 3 }}>
-        Ensure stations follow operational guidelines and safety standards
-      </Typography>
-
-      <Grid container spacing={3}>
-        {/* Compliance Status */}
-        <Grid item xs={12} md={6}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Compliance Status
-                </Typography>
-                <Box sx={{ mb: 2 }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography variant="body2">Safety Inspections</Typography>
-                    <Chip label="Compliant" color="success" size="small" />
-                  </Box>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography variant="body2">Environmental Standards</Typography>
-                    <Chip label="Compliant" color="success" size="small" />
-                  </Box>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography variant="body2">Operational Guidelines</Typography>
-                    <Chip label="Pending" color="warning" size="small" />
-                  </Box>
-                  <Box display="flex" justifyContent="space-between" alignItems="center">
-                    <Typography variant="body2">Maintenance Records</Typography>
-                    <Chip label="Compliant" color="success" size="small" />
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </Grid>
-
-        {/* Upcoming Tasks */}
-        <Grid item xs={12} md={6}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Upcoming Tasks
-                </Typography>
-                <Box>
-                  <Box sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Typography variant="body2" fontWeight="bold">
-                      Monthly Safety Inspection
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Due: March 15, 2025
-                    </Typography>
-                  </Box>
-                  <Box sx={{ mb: 2, p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Typography variant="body2" fontWeight="bold">
-                      Update Station Information
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Due: March 20, 2025
-                    </Typography>
-                  </Box>
-                  <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                    <Typography variant="body2" fontWeight="bold">
-                      Environmental Compliance Review
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Due: March 25, 2025
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </Grid>
-
-        {/* Guidelines */}
-        <Grid item xs={12}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Operational Guidelines
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={4}>
-                    <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1, height: '100%' }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Safety Protocols
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Regular safety inspections, emergency procedures, and staff training requirements.
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1, height: '100%' }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Environmental Standards
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Energy efficiency guidelines, waste management, and sustainability practices.
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Box sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: 1, height: '100%' }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Customer Service
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Response times, customer support standards, and feedback management.
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </Grid>
-      </Grid>
-    </Box>
-  );
-
-  const renderPromotions = () => (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" gutterBottom sx={{ color: '#2d3436', fontWeight: 'bold' }}>
-            Promotion Management
-          </Typography>
-          <Typography variant="subtitle1" sx={{ color: '#636e72' }}>
-            Create and manage franchise-wide offers and promotions
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          sx={{
-            background: 'linear-gradient(135deg, #00b894, #00a085)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #00a085, #00b894)'
-            }
-          }}
-        >
-          Create Promotion
-        </Button>
-      </Box>
-
-      <Grid container spacing={3}>
-        {dashboardData?.promotions?.map((promotion, index) => (
-          <Grid item xs={12} md={6} lg={4} key={index}>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Card sx={{ height: '100%' }}>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                      {promotion.title}
-                    </Typography>
-                    <Chip
-                      label={promotion.status}
-                      color={promotion.status === 'Active' ? 'success' : promotion.status === 'Scheduled' ? 'warning' : 'default'}
-                      size="small"
-                    />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    {promotion.description}
-                  </Typography>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Discount: {promotion.discount}%
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Valid: {promotion.validFrom} - {promotion.validTo}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Usage: {promotion.usageCount} times
-                    </Typography>
-                  </Box>
-                  <Box display="flex" gap={1}>
-                    <Button size="small" startIcon={<ViewIcon />}>
-                      View
-                    </Button>
-                    <Button size="small" startIcon={<EditIcon />}>
-                      Edit
-                    </Button>
-                    <Button size="small" startIcon={<DeleteIcon />} color="error">
-                      Delete
-                    </Button>
-                  </Box>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </Grid>
-        )) || []}
-      </Grid>
-    </Box>
-  );
+  const renderCommissions = () => {
+    return <FranchiseCommissionsPage />;
+  };
 
   const renderProfile = () => (
     <Box>
@@ -2565,10 +2349,8 @@ const FranchiseOwnerDashboard = () => {
         return renderManagers();
       case 'analytics':
         return renderAnalytics();
-      case 'compliance':
-        return renderCompliance();
-      case 'promotions':
-        return renderPromotions();
+      case 'commissions':
+        return renderCommissions();
       case 'profile':
         return renderProfile();
       default:

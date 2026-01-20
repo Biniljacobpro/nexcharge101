@@ -31,7 +31,8 @@ import {
   History as HistoryIcon,
   Notifications as NotificationsIcon,
   Settings as SettingsIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  Directions as DirectionsIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -40,6 +41,7 @@ import UserNavbar from '../components/UserNavbar';
 import Footer from '../components/Footer';
 import AnimatedBackground from '../components/AnimatedBackground';
 import InteractiveMap from '../components/InteractiveMap';
+
 
 const UserHomePage = () => {
   const navigate = useNavigate();
@@ -65,6 +67,9 @@ const UserHomePage = () => {
   const [otpInput, setOtpInput] = useState('');
   const [otpLoading, setOtpLoading] = useState(false);
   const [chargingStatus, setChargingStatus] = useState({});
+  const [otpDialogOpen, setOtpDialogOpen] = useState(false);
+  const [otpDialogMessage, setOtpDialogMessage] = useState('');
+  const [otpDialogType, setOtpDialogType] = useState('error'); // 'error' or 'success'
   
   // Vehicle makes for autocomplete (same as in admin module)
   const vehicleMakes = [
@@ -79,6 +84,50 @@ const UserHomePage = () => {
   const [editBookingDialogOpen, setEditBookingDialogOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState(null);
   const [editForm, setEditForm] = useState({ startTime: '', duration: '60', chargerType: 'ac_type2' });
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [bookingToCancel, setBookingToCancel] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelSuccess, setCancelSuccess] = useState(false);
+
+
+  // Function to load user bookings
+  const loadUserBookings = async () => {
+    try {
+      setBookingsLoading(true);
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:4000/api';
+        const res = await fetch(`${apiBase}/bookings/my-bookings?limit=5&_=${Date.now()}` , { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          const bookings = Array.isArray(data.data) ? data.data : [];
+          setMyBookings(bookings);
+          
+          // Restore charging status from booking data
+          const newChargingStatus = {};
+          bookings.forEach(booking => {
+            if (booking.chargingSession) {
+              if (booking.chargingSession.endTime) {
+                newChargingStatus[booking._id] = 'stopped';
+              } else if (booking.chargingSession.startTime) {
+                newChargingStatus[booking._id] = 'started';
+              }
+            }
+          });
+          setChargingStatus(newChargingStatus);
+        } else {
+          setMyBookings([]);
+        }
+      } else {
+        setMyBookings([]);
+      }
+    } catch (e) {
+      // ignore booking load errors in dashboard
+      setMyBookings([]);
+    } finally {
+      setBookingsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const loadUserProfile = async () => {
@@ -104,25 +153,7 @@ const UserHomePage = () => {
         })();
 
         // Fire bookings fetch in background
-        (async () => {
-          try {
-            setBookingsLoading(true);
-            const token = localStorage.getItem('accessToken');
-            if (token) {
-              const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:4000/api';
-              const res = await fetch(`${apiBase}/bookings/my-bookings?limit=5&_=${Date.now()}` , { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
-              const data = await res.json();
-              if (res.ok && data.success) setMyBookings(Array.isArray(data.data) ? data.data : []);
-              else setMyBookings([]);
-            } else {
-              setMyBookings([]);
-            }
-          } catch (e) {
-            // ignore booking load errors in dashboard
-          } finally {
-            setBookingsLoading(false);
-          }
-        })();
+        loadUserBookings();
 
         // If redirected here to add a vehicle from StationDetails
         const flag = localStorage.getItem('openAddVehicle');
@@ -146,7 +177,6 @@ const UserHomePage = () => {
 
     loadUserProfile();
   }, [navigate]);
-
   // Load available makes when dialog opens
   useEffect(() => {
     if (!vehicleDialogOpen) return;
@@ -201,9 +231,13 @@ const UserHomePage = () => {
     try {
       setOtpLoading(true);
       await generateOTPApi(bookingId);
-      alert('OTP sent to your email! Check your inbox.');
+      setOtpDialogType('success');
+      setOtpDialogMessage('OTP sent to your email! Check your inbox.');
+      setOtpDialogOpen(true);
     } catch (error) {
-      alert(error.message || 'Failed to generate OTP');
+      setOtpDialogType('error');
+      setOtpDialogMessage(error.message || 'Failed to generate OTP. Please try again.');
+      setOtpDialogOpen(true);
     } finally {
       setOtpLoading(false);
     }
@@ -215,17 +249,15 @@ const UserHomePage = () => {
       await verifyOTPApi(bookingId, otp);
       setChargingStatus(prev => ({ ...prev, [bookingId]: 'started' }));
       setOtpInput('');
-      alert('Charging started successfully!');
+      setOtpDialogType('success');
+      setOtpDialogMessage('Charging started successfully!');
+      setOtpDialogOpen(true);
       // Refresh bookings to update status
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:4000/api';
-        const res = await fetch(`${apiBase}/bookings/my-bookings?limit=5&_=${Date.now()}` , { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
-        const data = await res.json();
-        if (res.ok && data.success) setMyBookings(Array.isArray(data.data) ? data.data : []);
-      }
+      await loadUserBookings();
     } catch (error) {
-      alert(error.message || 'Failed to verify OTP');
+      setOtpDialogType('error');
+      setOtpDialogMessage(error.message || 'Invalid OTP. Please check and try again.');
+      setOtpDialogOpen(true);
     } finally {
       setOtpLoading(false);
     }
@@ -236,19 +268,38 @@ const UserHomePage = () => {
       setOtpLoading(true);
       await stopChargingApi(bookingId);
       setChargingStatus(prev => ({ ...prev, [bookingId]: 'stopped' }));
-      alert('Charging stopped successfully!');
+      setOtpDialogType('success');
+      setOtpDialogMessage('Charging stopped successfully!');
+      setOtpDialogOpen(true);
       // Refresh bookings to update status
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:4000/api';
-        const res = await fetch(`${apiBase}/bookings/my-bookings?limit=5&_=${Date.now()}` , { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
-        const data = await res.json();
-        if (res.ok && data.success) setMyBookings(Array.isArray(data.data) ? data.data : []);
-      }
+      await loadUserBookings();
     } catch (error) {
-      alert(error.message || 'Failed to stop charging');
+      setOtpDialogType('error');
+      setOtpDialogMessage(error.message || 'Failed to stop charging. Please try again.');
+      setOtpDialogOpen(true);
     } finally {
       setOtpLoading(false);
+    }
+  };
+
+  const handleCancelBooking = async () => {
+    if (!bookingToCancel) return;
+    
+    try {
+      setCancelLoading(true);
+      await cancelBookingApi(bookingToCancel._id, 'User requested');
+      setCancelSuccess(true);
+      
+      // Refresh bookings after a delay to show success message
+      setTimeout(async () => {
+        await loadUserBookings();
+        setCancelDialogOpen(false);
+        setCancelSuccess(false);
+        setBookingToCancel(null);
+      }, 3000);
+    } catch (error) {
+      alert(error.message || 'Failed to cancel booking');
+      setCancelLoading(false);
     }
   };
 
@@ -317,7 +368,7 @@ const UserHomePage = () => {
                 if (!next) return null;
                 const start = new Date(next.startTime);
                 const end = new Date(next.endTime);
-                const canCancel = (start.getTime() - Date.now()) >= 2*60*60*1000;
+                const canCancel = (start.getTime() - Date.now()) >= 20*60*1000; // 20 minutes
                 const isChargingStarted = chargingStatus[next._id] === 'started';
                 const isChargingStopped = chargingStatus[next._id] === 'stopped';
                 const timeToStart = Math.round((start.getTime() - now.getTime()) / (1000 * 60)); // minutes
@@ -411,38 +462,15 @@ const UserHomePage = () => {
                           color={isChargingStarted ? "success" : isChargingStopped ? "warning" : "primary"} 
                           label={isChargingStarted ? "charging" : isChargingStopped ? "stopped" : "upcoming"} 
                         />
-                        <Button size="small" variant="outlined" onClick={() => {
-                          setEditingBooking(next);
-                          setEditForm({
-                            startTime: new Date(next.startTime).toISOString().slice(0,16),
-                            duration: String(Math.max(30, Math.round((new Date(next.endTime) - new Date(next.startTime)) / (1000*60)))) ,
-                            chargerType: next.chargerType || 'ac_type2'
-                          });
-                          setEditBookingDialogOpen(true);
-                        }}>Edit</Button>
                         {canCancel && (
-                          <Tooltip title="Cancellations are allowed up to 2 hours before the start time">
-                            <Button size="small" color="error" variant="outlined" onClick={async () => {
-                              const ok = window.confirm('Are you sure you want to cancel this booking? The slot will be made available again.');
-                              if (!ok) return;
-                              try {
-                                await cancelBookingApi(next._id, 'User requested');
-                                // refresh bookings
-                                const token = localStorage.getItem('accessToken');
-                                if (token) {
-                                  const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:4000/api';
-                                  const res = await fetch(`${apiBase}/bookings/my-bookings?limit=5&_=${Date.now()}` , { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
-                                  const data = await res.json();
-                                  if (res.ok && data.success) setMyBookings(Array.isArray(data.data) ? data.data : []);
-                                  else setMyBookings([]);
-                                }
-                              } catch (e) {
-                                alert(e.message || 'Failed to cancel booking');
-                              }
+                          <Tooltip title="Cancellations are allowed up to 20 minutes before the start time">
+                            <Button size="small" color="error" variant="outlined" onClick={() => {
+                              setBookingToCancel(next);
+                              setCancelDialogOpen(true);
                             }}>Cancel</Button>
                           </Tooltip>
                         )}
-                        <Button size="small" onClick={() => navigate('/bookings')}>View all</Button>
+                        <Button size="small" variant="outlined" onClick={() => navigate('/bookings')}>More</Button>
                       </Grid>
                     </Grid>
                   </Paper>
@@ -528,10 +556,26 @@ const UserHomePage = () => {
                       </CardContent>
                     </Card>
                   </Grid>
+                  
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Card onClick={() => navigate('/route-planner')} sx={{ height: '100%', borderRadius: 3, boxShadow: '0 6px 24px rgba(0,0,0,0.08)', cursor: 'pointer', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 10px 28px rgba(0,0,0,0.12)' } }}>
+                      <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', p: 3, minHeight: 150 }}>
+                        <DirectionsIcon sx={{ fontSize: 40, color: 'info.main', mb: 2 }} />
+                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
+                          Route Planner
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mx: 'auto' }}>
+                          Plan your EV journey
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
                 </Grid>
               </Grid>
             </Grid>
 
+
+            
             {/* Nearby Charging Stations */}
             <Box sx={{ mb: 6 }}>
               <Typography variant="h5" sx={{ fontWeight: 700, color: '#1f2937', mb: 2 }}>
@@ -576,6 +620,7 @@ const UserHomePage = () => {
                       const isUpcoming = start > now;
                       const isCancelled = b.status === 'cancelled';
                       const isCompleted = b.status === 'completed';
+                      const canCancel = isUpcoming && !isCancelled && !isCompleted && (start.getTime() - Date.now()) >= 20*60*1000; // 20 minutes
                       const label = isCancelled ? 'cancelled' : (isCompleted ? 'completed' : (isPast ? 'past' : (isUpcoming ? 'upcoming' : 'ongoing')));
                       const chipColor = isCancelled ? 'error' : (isCompleted ? 'default' : (isPast ? 'default' : (isUpcoming ? 'primary' : 'success')));
                       return (
@@ -591,17 +636,15 @@ const UserHomePage = () => {
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <Chip size="small" color={chipColor} label={label} />
-                              {isUpcoming && !isCancelled && (
-                                <Button size="small" variant="outlined" onClick={() => {
-                                  setEditingBooking(b);
-                                  setEditForm({
-                                    startTime: new Date(b.startTime).toISOString().slice(0,16),
-                                    duration: String(Math.max(30, Math.round((new Date(b.endTime) - new Date(b.startTime)) / (1000*60)))),
-                                    chargerType: b.chargerType || 'ac_type2'
-                                  });
-                                  setEditBookingDialogOpen(true);
-                                }}>Edit</Button>
+                              {canCancel && (
+                                <Tooltip title="Cancellations are allowed up to 20 minutes before the start time">
+                                  <Button size="small" color="error" variant="outlined" onClick={() => {
+                                    setBookingToCancel(b);
+                                    setCancelDialogOpen(true);
+                                  }}>Cancel</Button>
+                                </Tooltip>
                               )}
+                              <Button size="small" variant="outlined" onClick={() => navigate('/bookings')}>More</Button>
                             </Box>
                           </Box>
                         </Paper>
@@ -1135,6 +1178,96 @@ const UserHomePage = () => {
               alert(e.message || 'Failed to update booking');
             }
           }}>Save</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* OTP Feedback Dialog */}
+      <Dialog 
+        open={otpDialogOpen} 
+        onClose={() => setOtpDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {otpDialogType === 'success' ? 'Success' : 'Error'}
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity={otpDialogType} sx={{ mb: 2 }}>
+            <Typography variant="body1">
+              {otpDialogMessage}
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOtpDialogOpen(false)} variant="contained" color="primary">
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Cancel Booking Dialog */}
+      <Dialog 
+        open={cancelDialogOpen} 
+        onClose={() => !cancelLoading && setCancelDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Cancel Booking</DialogTitle>
+        <DialogContent>
+          {!cancelSuccess ? (
+            <>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Are you sure you want to cancel this booking?
+              </Typography>
+              {bookingToCancel && (
+                <Paper sx={{ p: 2, bgcolor: '#f8f9fa', mb: 2 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                    {bookingToCancel.stationId?.name || 'Station'}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {new Date(bookingToCancel.startTime).toLocaleString()} → {new Date(bookingToCancel.endTime).toLocaleString()}
+                  </Typography>
+                  {bookingToCancel.price && (
+                    <Typography variant="body2" sx={{ mt: 1, fontWeight: 500 }}>
+                      Amount: ₹{bookingToCancel.price}
+                    </Typography>
+                  )}
+                </Paper>
+              )}
+              <Alert severity="info" sx={{ mb: 2 }}>
+                The paid amount will be refunded to your account within 24 hours.
+              </Alert>
+              <Typography variant="body2" color="text.secondary">
+                The booking slot will be made available for other users.
+              </Typography>
+            </>
+          ) : (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                Booking Cancelled Successfully!
+              </Typography>
+              <Typography variant="body2">
+                Your refund of ₹{bookingToCancel?.price || '0'} will be processed within 24 hours and credited to your account.
+              </Typography>
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!cancelSuccess && (
+            <>
+              <Button onClick={() => setCancelDialogOpen(false)} disabled={cancelLoading}>
+                No, Keep Booking
+              </Button>
+              <Button 
+                onClick={handleCancelBooking} 
+                color="error" 
+                variant="contained"
+                disabled={cancelLoading}
+              >
+                {cancelLoading ? 'Cancelling...' : 'Yes, Cancel Booking'}
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

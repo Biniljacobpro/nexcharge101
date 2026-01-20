@@ -48,6 +48,21 @@ const EVUserInfoSchema = new mongoose.Schema({
 	paymentMethods: [PaymentMethodSchema],
 	loyaltyPoints: { type: Number, default: 0 },
 	notificationPreferences: { type: NotificationPrefsSchema, default: () => ({}) },
+	// Churn prediction fields for EV Users
+	churnRisk: {
+		type: String,
+		enum: ['Low', 'Medium', 'High'],
+		default: 'Low',
+		index: true // Index this field for fast filtering on the dashboard
+	},
+	churnProbability: {
+		type: Number, // Store the raw probability score (0.0 to 1.0)
+		default: 0.0
+	},
+	lastPredictionDate: {
+		type: Date,
+		default: Date.now
+	}
 }, { _id: false });
 
 const RoleSpecificSchema = new mongoose.Schema({
@@ -111,4 +126,3 @@ const UserSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 export default mongoose.model('User', UserSchema);
-

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Box, Card, CardContent, CircularProgress, Alert } from '@mui/material';
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import { Box, Card, CardContent, CircularProgress, Alert, Typography } from '@mui/material';
+import { GoogleMap, LoadScript, DirectionsRenderer, Marker } from '@react-google-maps/api';
 
 // Keep libraries array as static to avoid LoadScript reloading
 const GOOGLE_MAPS_LIBRARIES = ['geometry'];
@@ -19,14 +19,16 @@ const StationMapPreview = ({
   station,
   height = 200
 }) => {
-  const [map, setMap] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [error, setError] = useState('');
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
+  const [directions, setDirections] = useState(null);
+  const [routeInfo, setRouteInfo] = useState(null);
 
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 
-  // Get user location on component mount
+  // Get user location on component mount and calculate directions
   useEffect(() => {
     // Set a default user location immediately for better UX
     setUserLocation(defaultCenter);
@@ -40,17 +42,72 @@ const StationMapPreview = ({
             lng: position.coords.longitude
           };
           setUserLocation(location);
+          // Calculate directions once we have user location
+          calculateDirections(location, station);
         },
         (error) => {
           console.error('Geolocation error:', error);
-          // Keep default location
+          // Keep default location and calculate directions anyway
+          calculateDirections(defaultCenter, station);
         }
       );
+    } else {
+      // Calculate directions with default location if geolocation not supported
+      calculateDirections(defaultCenter, station);
     }
-  }, []);
+  }, [station]);
+
+  const calculateDirections = useCallback((origin, destStation) => {
+    if (!destStation || !window.google?.maps?.DirectionsService || !isGoogleMapsLoaded) return;
+
+    const stationPosition = {
+      lat: destStation?.location?.coordinates?.latitude || destStation?.location?.latitude || destStation?.lat || 0,
+      lng: destStation?.location?.coordinates?.longitude || destStation?.location?.longitude || destStation?.lng || 0
+    };
+
+    if (!stationPosition.lat || !stationPosition.lng) return;
+
+    const directionsService = new window.google.maps.DirectionsService();
+    
+    directionsService.route(
+      {
+        origin: origin,
+        destination: stationPosition,
+        travelMode: window.google.maps.TravelMode.DRIVING,
+      },
+      (result, status) => {
+        if (status === window.google.maps.DirectionsStatus.OK) {
+          setDirections(result);
+          // Extract route information
+          if (result.routes && result.routes.length > 0) {
+            const route = result.routes[0];
+            const leg = route.legs[0];
+            setRouteInfo({
+              distance: leg.distance.text,
+              duration: leg.duration.text
+            });
+          }
+        } else {
+          console.warn('Could not calculate directions for preview:', status);
+          // Still show the station marker even if directions fail
+          setDirections(null);
+          setRouteInfo(null);
+        }
+      }
+    );
+  }, [isGoogleMapsLoaded, station]);
+
+  // Recalculate when map loads and user location is available
+  useEffect(() => {
+    if (isGoogleMapsLoaded && userLocation && station) {
+      const timer = setTimeout(() => {
+        calculateDirections(userLocation, station);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isGoogleMapsLoaded, userLocation, station, calculateDirections]);
 
   const onMapLoad = useCallback((mapInstance) => {
-    setMap(mapInstance);
     setMapLoaded(true);
   }, []);
 
@@ -103,6 +160,27 @@ const StationMapPreview = ({
           </Box>
         )}
 
+        {/* Route Info Overlay */}
+        {routeInfo && (
+          <Box 
+            sx={{ 
+              position: 'absolute', 
+              top: 8, 
+              left: 8, 
+              right: 8, 
+              zIndex: 1000,
+              bgcolor: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: 1,
+              p: 1,
+              boxShadow: 1
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600, color: '#1f2937' }}>
+              {routeInfo.distance} ({routeInfo.duration})
+            </Typography>
+          </Box>
+        )}
+
         {/* Static map placeholder while loading */}
         {!mapLoaded && (
           <Box 
@@ -131,6 +209,9 @@ const StationMapPreview = ({
         <LoadScript 
           googleMapsApiKey={apiKey} 
           libraries={GOOGLE_MAPS_LIBRARIES}
+          onLoad={() => {
+            setIsGoogleMapsLoaded(true);
+          }}
           onError={() => setError('Google Maps billing not enabled. Please enable billing in Google Cloud Console.')}
           loadingElement={
             <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -144,28 +225,29 @@ const StationMapPreview = ({
             zoom={14}
             onLoad={onMapLoad}
             options={{
-              disableDefaultUI: true,
-              zoomControl: false,
-              gestureHandling: 'none', // Disable gestures for preview
+              disableDefaultUI: false, // Enable default UI for better context
+              zoomControl: true,
+              gestureHandling: 'auto', // Enable gestures for better interaction
               styles: [
-                {
-                  featureType: "all",
-                  elementType: "labels",
-                  stylers: [{ visibility: "off" }]
-                },
-                {
-                  featureType: "administrative",
-                  elementType: "labels",
-                  stylers: [{ visibility: "off" }]
-                },
-                {
-                  featureType: "road",
-                  elementType: "labels",
-                  stylers: [{ visibility: "off" }]
-                }
+                // Remove the styles that hide labels and roads
               ]
             }}
           >
+            {/* Show directions if available */}
+            {directions && (
+              <DirectionsRenderer
+                directions={directions}
+                options={{
+                  polylineOptions: {
+                    strokeColor: '#4285F4',
+                    strokeWeight: 6, // Increased stroke weight for better visibility
+                    strokeOpacity: 0.8
+                  },
+                  suppressMarkers: true, // We'll add our own markers
+                }}
+              />
+            )}
+            
             {/* Station marker */}
             {stationPosition.lat && stationPosition.lng && (
               <Marker
@@ -178,6 +260,21 @@ const StationMapPreview = ({
                     </svg>
                   `),
                   scaledSize: { width: 20, height: 20 }
+                }}
+              />
+            )}
+            
+            {/* User location marker */}
+            {userLocation && (
+              <Marker
+                position={userLocation}
+                icon={{
+                  url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                    <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="8" cy="8" r="6" fill="#4285F4" stroke="white" stroke-width="2"/>
+                    </svg>
+                  `),
+                  scaledSize: { width: 16, height: 16 }
                 }}
               />
             )}

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import CorporateCommissionsPage from './CorporateCommissionsPage';
 import {
   Box,
   Container,
@@ -48,11 +50,13 @@ import {
   MenuItem as MenuItemComponent,
   Switch,
   FormControlLabel,
-  LinearProgress
+  LinearProgress,
+  Pagination
 } from '@mui/material';
 import corporateService from '../services/corporateService';
 import * as api from '../utils/api';
 import NotificationDropdown from '../components/NotificationDropdown';
+import UserRetentionRisk from '../components/UserRetentionRisk';
 import {
   Dashboard as DashboardIcon,
   Business as BusinessIcon,
@@ -95,7 +99,8 @@ import {
   Warning as WarningIcon,
   Error as ErrorIcon,
   Storage as StorageIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  AttachMoney as MoneyIcon
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import nexchargeLogo from '../assets/nexcharge-high-resolution-logo-transparent.png';
@@ -133,6 +138,12 @@ const CorporateDashboard = () => {
     averageRating: 0
   });
 
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingsPagination, setBookingsPagination] = useState({ current: 1, pages: 1, total: 0 });
+  const [bookingFilters, setBookingFilters] = useState({ franchiseId: 'all', status: 'all' });
+  const [availableFranchises, setAvailableFranchises] = useState([]);
+
   const [recentBookings, setRecentBookings] = useState([]);
   const [analyticsData, setAnalyticsData] = useState({
     revenueData: [],
@@ -168,6 +179,7 @@ const CorporateDashboard = () => {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [profileImageLoading, setProfileImageLoading] = useState(false);
   const [profileImagePreview, setProfileImagePreview] = useState('');
+  const navigate = useNavigate();
 
   // Navigation items
   const navigationItems = [
@@ -175,8 +187,10 @@ const CorporateDashboard = () => {
     { id: 'franchises', label: 'Franchise Management', icon: <BusinessIcon />, description: 'Manage franchise partners' },
     { id: 'stations', label: 'Station Management', icon: <ChargingStationIcon />, description: 'Monitor charging stations' },
     { id: 'users', label: 'User Management', icon: <PeopleIcon />, description: 'Manage franchise owners and station managers' },
+    { id: 'retention', label: 'User Retention', icon: <PsychologyIcon />, description: 'Monitor user churn risk' },
     { id: 'analytics', label: 'Analytics', icon: <AnalyticsIcon />, description: 'Performance insights' },
     { id: 'bookings', label: 'Booking Management', icon: <ScheduleIcon />, description: 'Track charging sessions' },
+    { id: 'commissions', label: 'Commissions', icon: <MoneyIcon />, description: 'View and track commission earnings' },
     { id: 'profile', label: 'Profile Settings', icon: <PersonIcon />, description: 'Account management' },
     { id: 'settings', label: 'Corporate Settings', icon: <SettingsIcon />, description: 'System configuration' }
   ];
@@ -191,6 +205,7 @@ const CorporateDashboard = () => {
     loadUserProfile();
     loadCorporateInfo();
     loadUsers();
+    loadAllBookings(); // Load all bookings for the new section
   }, []);
 
   const loadUserProfile = async () => {
@@ -245,6 +260,28 @@ const CorporateDashboard = () => {
     } catch (error) {
       console.error('Error loading recent bookings:', error);
       setSnackbar({ open: true, message: 'Error loading recent bookings', severity: 'error' });
+    }
+  };
+
+  const loadAllBookings = async (page = 1) => {
+    setBookingsLoading(true);
+    try {
+      const response = await corporateService.getAllBookings(
+        page, 
+        10, 
+        bookingFilters.franchiseId, 
+        bookingFilters.status
+      );
+      if (response.success) {
+        setBookings(response.data.bookings);
+        setBookingsPagination(response.data.pagination);
+        setAvailableFranchises(response.data.franchises || []);
+      }
+    } catch (error) {
+      console.error('Error loading bookings:', error);
+      setSnackbar({ open: true, message: 'Error loading bookings', severity: 'error' });
+    } finally {
+      setBookingsLoading(false);
     }
   };
 
@@ -452,6 +489,18 @@ const CorporateDashboard = () => {
     } finally {
       setPasswordLoading(false);
     }
+  };
+
+  const handleBookingFilterChange = (filterName) => (event) => {
+    const newFilters = { ...bookingFilters, [filterName]: event.target.value };
+    setBookingFilters(newFilters);
+    
+    // Reload bookings with new filters
+    loadAllBookings(1);
+  };
+
+  const handleBookingPageChange = (event, page) => {
+    loadAllBookings(page);
   };
 
   // Profile image handlers (upload/remove)
@@ -1202,117 +1251,338 @@ const CorporateDashboard = () => {
   );
 
   const renderAnalytics = () => (
-    <Box>
-      <Typography variant="h5" gutterBottom>
-        Advanced Analytics
+  <Box>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Typography variant="h5">Business Analytics</Typography>
+      <Typography variant="body2" color="text.secondary">
+        Comprehensive insights into your platform performance
       </Typography>
-      
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Performance Metrics
-              </Typography>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="body2">Network Efficiency</Typography>
-                <Typography variant="h6" color="success.main">{analyticsData.performanceMetrics.networkEfficiency || 87}%</Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="body2">Customer Satisfaction</Typography>
-                <Typography variant="h6" color="primary.main">{analyticsData.performanceMetrics.customerSatisfaction || 4.6}/5</Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="body2">Station Uptime</Typography>
-                <Typography variant="h6" color="info.main">{analyticsData.performanceMetrics.stationUptime || 96.2}%</Typography>
-              </Box>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="body2">Revenue per Station</Typography>
-                <Typography variant="h6" color="warning.main">₹{(analyticsData.performanceMetrics.revenuePerStation || 26042).toLocaleString()}</Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={12} md={6}>
-          <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Geographic Distribution
-              </Typography>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={[
-                  { name: 'Mumbai', stations: 15, revenue: 450000 },
-                  { name: 'Delhi', stations: 12, revenue: 380000 },
-                  { name: 'Bangalore', stations: 10, revenue: 320000 },
-                  { name: 'Chennai', stations: 8, revenue: 250000 },
-                  { name: 'Pune', stations: 6, revenue: 180000 }
-                ]}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <RechartsTooltip />
-                  <Bar dataKey="stations" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
     </Box>
-  );
+    
+    <Grid container spacing={3}>
+      {/* Performance Metrics Card */}
+      <Grid item xs={12}>
+        <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Performance Metrics
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ textAlign: 'center', p: 2 }}>
+                  <Typography variant="h4" color="primary.main" sx={{ fontWeight: 'bold' }}>
+                    {analyticsData.performanceMetrics.networkEfficiency || 0}%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Network Efficiency
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ textAlign: 'center', p: 2 }}>
+                  <Typography variant="h4" color="success.main" sx={{ fontWeight: 'bold' }}>
+                    {analyticsData.performanceMetrics.customerSatisfaction || 0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Customer Satisfaction
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ textAlign: 'center', p: 2 }}>
+                  <Typography variant="h4" color="info.main" sx={{ fontWeight: 'bold' }}>
+                    {analyticsData.performanceMetrics.stationUptime || 0}%
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Station Uptime
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Box sx={{ textAlign: 'center', p: 2 }}>
+                  <Typography variant="h4" color="warning.main" sx={{ fontWeight: 'bold' }}>
+                    ₹{(analyticsData.performanceMetrics.revenuePerStation || 0).toLocaleString()}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Revenue per Station
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      </Grid>
+      
+      {/* Revenue & Bookings Trend Chart */}
+      <Grid item xs={12} md={8}>
+        <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Revenue & Bookings Trend
+            </Typography>
+            <Box sx={{ height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={analyticsData.revenueData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" />
+                  <RechartsTooltip />
+                  <Line 
+                    yAxisId="left"
+                    type="monotone" 
+                    dataKey="revenue" 
+                    stroke="#8884d8" 
+                    strokeWidth={2} 
+                    name="Revenue (₹)"
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Line 
+                    yAxisId="right"
+                    type="monotone" 
+                    dataKey="bookings" 
+                    stroke="#82ca9d" 
+                    strokeWidth={2} 
+                    name="Bookings"
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
+      
+      {/* Station Type Distribution */}
+      <Grid item xs={12} md={4}>
+        <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Station Type Distribution
+            </Typography>
+            <Box sx={{ height: 300 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={analyticsData.stationData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="value"
+                    nameKey="name"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {analyticsData.stationData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip 
+                    formatter={(value, name, props) => [value, name]}
+                    labelFormatter={(name) => `Type: ${name}`}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </Box>
+          </CardContent>
+        </Card>
+      </Grid>
+    </Grid>
+  </Box>
+);
 
   const renderBookings = () => (
     <Box>
-      <Typography variant="h5" gutterBottom>
-        Recent Bookings
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5">All Bookings</Typography>
+        <Typography variant="body2" color="text.secondary">
+          View and manage all bookings across your corporate network
+        </Typography>
+      </Box>
       
-      <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>User</TableCell>
-                <TableCell>Station</TableCell>
-                <TableCell>Amount</TableCell>
-                <TableCell>Time</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {recentBookings.map((booking) => (
-                <TableRow key={booking.id}>
-                  <TableCell>
-                    <Box display="flex" alignItems="center">
-                      <Avatar sx={{ mr: 2, bgcolor: 'secondary.main' }}>
-                        {booking.user.charAt(0)}
-                      </Avatar>
-                      {booking.user}
-                    </Box>
-                  </TableCell>
-                  <TableCell>{booking.station}</TableCell>
-                  <TableCell>₹{booking.amount}</TableCell>
-                  <TableCell>{booking.time}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={booking.status}
-                      color={booking.status === 'completed' ? 'success' : 'warning'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <IconButton size="small">
-                      <VisibilityIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+      {/* Filters */}
+      <Card sx={{ mb: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+        <CardContent>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Franchise</InputLabel>
+                <Select
+                  value={bookingFilters.franchiseId}
+                  label="Franchise"
+                  onChange={handleBookingFilterChange('franchiseId')}
+                >
+                  <MenuItem value="all">All Franchises</MenuItem>
+                  <MenuItem value="null">Corporate Direct</MenuItem>
+                  {availableFranchises.map((franchise) => (
+                    <MenuItem key={franchise.id} value={franchise.id}>
+                      {franchise.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={bookingFilters.status}
+                  label="Status"
+                  onChange={handleBookingFilterChange('status')}
+                >
+                  <MenuItem value="all">All Statuses</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="in-progress">In Progress</MenuItem>
+                  <MenuItem value="cancelled">Cancelled</MenuItem>
+                  <MenuItem value="pending">Pending</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={() => loadAllBookings(bookingsPagination.current)}
+                disabled={bookingsLoading}
+              >
+                Refresh
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
       </Card>
+      
+      {/* Bookings Table */}
+      <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+        {bookingsLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>User</TableCell>
+                    <TableCell>Station</TableCell>
+                    <TableCell>Franchise</TableCell>
+                    <TableCell>Amount</TableCell>
+                    <TableCell>Booking Time</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {bookings.length > 0 ? (
+                    bookings.map((booking) => (
+                      <TableRow key={booking.id}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Avatar sx={{ mr: 2, width: 32, height: 32, bgcolor: 'primary.main' }}>
+                              {booking.user.name.charAt(0)}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                {booking.user.name}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {booking.user.email}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              {booking.station.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {booking.station.code}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={booking.franchise.name || 'Corporate Direct'} 
+                            size="small" 
+                            color={booking.franchise.name ? 'primary' : 'secondary'}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            ₹{booking.amount.toLocaleString()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {booking.bookingTime}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {booking.time}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={booking.status}
+                            color={
+                              booking.status === 'completed' ? 'success' : 
+                              booking.status === 'in-progress' ? 'info' : 
+                              booking.status === 'cancelled' ? 'error' : 'warning'
+                            }
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <IconButton size="small">
+                            <VisibilityIcon />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          No bookings found
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            
+            {/* Pagination */}
+            {bookingsPagination.pages > 1 && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                <Pagination
+                  count={bookingsPagination.pages}
+                  page={bookingsPagination.current}
+                  onChange={handleBookingPageChange}
+                  color="primary"
+                  showFirstButton
+                  showLastButton
+                />
+              </Box>
+            )}
+          </>
+        )}
+      </Card>
+      
+      {bookings.length > 0 && (
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            Showing {bookings.length} of {bookingsPagination.total} bookings
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 
@@ -1563,6 +1833,15 @@ const CorporateDashboard = () => {
     </Box>
   );
 
+  const renderCommissions = () => {
+    return <CorporateCommissionsPage />;
+  };
+
+  // Add the render function for the retention section
+  const renderRetention = () => (
+    <UserRetentionRisk />
+  );
+
   const currentSection = navigationItems.find(item => item.id === activeSection);
 
   return (
@@ -1709,8 +1988,10 @@ const CorporateDashboard = () => {
           {activeSection === 'franchises' && renderFranchiseManagement()}
           {activeSection === 'stations' && renderStationManagement()}
           {activeSection === 'users' && renderUserManagement()}
+          {activeSection === 'retention' && renderRetention()}
           {activeSection === 'analytics' && renderAnalytics()}
           {activeSection === 'bookings' && renderBookings()}
+          {activeSection === 'commissions' && renderCommissions()}
           {activeSection === 'profile' && renderProfile()}
           {activeSection === 'settings' && renderSettings()}
         </Box>

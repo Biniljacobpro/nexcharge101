@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { getMe, getMyVehiclesApi } from '../utils/api';
 import { useSingleStationAvailability } from '../hooks/useRealTimeAvailability';
 import {
@@ -31,19 +31,23 @@ import {
 import UserNavbar from '../components/UserNavbar';
 import Footer from '../components/Footer';
 import AnimatedBackground from '../components/AnimatedBackground';
-import GoogleMapsDirections from '../components/GoogleMapsDirections';
 import StationMapPreview from '../components/StationMapPreview';
-import GetDirectionsButton from '../components/GetDirectionsButton';
+import BookingTimeline from '../components/BookingTimeline';
+import BookingModal from '../components/BookingModal';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import EvStationIcon from '@mui/icons-material/EvStation';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
 import ThumbDownIcon from '@mui/icons-material/ThumbDown';
+import DirectionsIcon from '@mui/icons-material/Directions';
+
+import { getChargingRecommendation } from '../services/bookingService';
 
 const StationDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [station, setStation] = useState(null);
   const [myVehicles, setMyVehicles] = useState([]);
   const [catalogVehicles, setCatalogVehicles] = useState([]); // public vehicles catalog
@@ -59,6 +63,8 @@ const StationDetails = () => {
     rating: 0,
     comment: ''
   });
+  const [recommendation, setRecommendation] = useState(null);
+  const [recommendationLoading, setRecommendationLoading] = useState(false);
   
   // Real-time availability for this station
   const { availability: realTimeAvailability } = useSingleStationAvailability(id, 30000);
@@ -75,7 +81,6 @@ const StationDetails = () => {
   });
   const [bookingLoading, setBookingLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  const [directionsDialog, setDirectionsDialog] = useState(false);
   const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:4000/api';
   const API_ORIGIN = API_BASE.replace(/\/api$/, '');
 
@@ -433,6 +438,11 @@ const StationDetails = () => {
             if (stationBody?.data) setStation(stationBody.data);
           }
         } catch (_) {}
+        
+        // Redirect to home page after successful payment
+        setTimeout(() => {
+          navigate('/home');
+        }, 2000); // Wait 2 seconds to show the success message
       } else {
         setSnackbar({ open: true, message: verifyResult.message || 'Payment verification failed', severity: 'error' });
       }
@@ -666,11 +676,18 @@ const StationDetails = () => {
     }
   };
 
-  // Load reviews for the station
-  const loadReviews = useCallback(async () => {
+  // Load reviews for the station with optional sentiment filter
+  const loadReviews = useCallback(async (sentimentFilter = null) => {
     try {
       const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:4000/api';
-      const response = await fetch(`${apiBase}/reviews/station/${id}`);
+      let url = `${apiBase}/reviews/station/${id}`;
+      
+      // Add sentiment filter if provided
+      if (sentimentFilter) {
+        url += `?sentiment=${sentimentFilter}`;
+      }
+      
+      const response = await fetch(url);
       if (response.ok) {
         const result = await response.json();
         setReviews(result.data || []);
@@ -690,6 +707,57 @@ const StationDetails = () => {
       });
     }
   }, [showReviewForm]);
+
+  // Check if there's a pre-filled booking time from route planner
+  useEffect(() => {
+    if (location.state?.bookingTime && station) {
+      const bookingTime = new Date(location.state.bookingTime);
+      const startTimeValue = toLocalDateTimeValue(bookingTime);
+      
+      // Calculate appropriate duration based on charging time
+      let duration = '2'; // Default 2 hours
+      if (location.state?.chargingTime) {
+        const chargingMinutes = location.state.chargingTime;
+        const chargingHours = chargingMinutes / 60;
+        
+        // Find the nearest duration option
+        const durations = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+        let nearest = durations[0];
+        let minDiff = Math.abs(chargingHours - nearest);
+        
+        for (const d of durations) {
+          const diff = Math.abs(chargingHours - d);
+          if (diff < minDiff) {
+            minDiff = diff;
+            nearest = d;
+          }
+        }
+        
+        // If charging time is close to the lower duration, pick the higher one for safety
+        if (chargingHours > nearest && (chargingHours - nearest) > 0.1) {
+          const nextIndex = durations.indexOf(nearest) + 1;
+          if (nextIndex < durations.length) {
+            nearest = durations[nextIndex];
+          }
+        }
+        
+        duration = String(nearest);
+      }
+      
+      // Set the booking form with the arrival time and duration
+      setBookingForm(prev => ({
+        ...prev,
+        startTime: startTimeValue,
+        duration: duration
+      }));
+      
+      // Auto-open the booking dialog
+      setBookingDialog(true);
+      
+      // Clear the state to prevent reopening on re-render
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, station]);
 
   useEffect(() => {
     const load = async () => {
@@ -714,7 +782,7 @@ const StationDetails = () => {
           loadMyVehicles(), 
           loadCatalogVehicles(), 
           loadMyBookings(),
-          loadReviews()
+          loadReviews() // Load all reviews initially
         ]);
 
         if (userRes) {
@@ -767,6 +835,75 @@ const StationDetails = () => {
     return [];
   };
 
+  // Function to get smart charging recommendation
+  const fetchRecommendation = useCallback(async () => {
+    // Get the selected vehicle from the index
+    const selectedVehicleIndex = Number(bookingForm.selectedVehicleIndex);
+    const selectedVehicle = Number.isInteger(selectedVehicleIndex) ? enrichedMyVehicles[selectedVehicleIndex] : undefined;
+    
+    console.log('Fetching recommendation with:', {
+      selectedVehicle,
+      stationId: station?._id,
+      currentCharge: bookingForm.currentCharge,
+      duration: bookingForm.duration
+    });
+    
+    if (!selectedVehicle || !station?._id) {
+      console.log('Missing required data for recommendation');
+      return;
+    }
+    
+    // Map selected user vehicle to catalog vehicle ID (by make+model)
+    const norm = (s) => String(s || '').trim().toLowerCase();
+    const catalogMatch = catalogVehicles.find(cv => norm(cv.make) === norm(selectedVehicle?.make) && norm(cv.model) === norm(selectedVehicle?.model));
+    if (!catalogMatch?._id) {
+      console.log('Selected vehicle not found in catalog for recommendation');
+      return;
+    }
+    
+    setRecommendationLoading(true);
+    try {
+      const currentCharge = bookingForm.currentCharge || 30;
+      const duration = bookingForm.duration || 1; // Duration in hours
+    
+      const result = await getChargingRecommendation(
+        catalogMatch._id,  // Use catalog vehicle ID instead of user vehicle ID
+        station._id,
+        currentCharge,
+        duration
+      );
+    
+      console.log('Recommendation result:', result);
+    
+      if (result.success) {
+        setRecommendation(result.data);
+      } else {
+        console.error('Recommendation API returned error:', result.message);
+        setRecommendation(null);
+      }
+    } catch (error) {
+      console.error('Error fetching recommendation:', error);
+      setRecommendation(null);
+    } finally {
+      setRecommendationLoading(false);
+    }
+  }, [bookingForm.selectedVehicleIndex, enrichedMyVehicles, station, catalogVehicles, bookingForm.currentCharge, bookingForm.duration]);
+
+  // Fetch recommendation when booking dialog is open and form values change
+  useEffect(() => {
+    if (bookingDialog && bookingForm.selectedVehicleIndex !== '' && 
+        bookingForm.currentCharge && bookingForm.duration) {
+      // Add a small delay to avoid too many API calls while user is typing
+      const timer = setTimeout(() => {
+        fetchRecommendation();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    } else {
+      // Clear recommendation when dialog is closed or form is invalid
+      setRecommendation(null);
+    }
+  }, [bookingDialog, bookingForm.selectedVehicleIndex, bookingForm.currentCharge, bookingForm.duration, fetchRecommendation]);
   if (loading) {
     return (
       <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#ffffff' }}>
@@ -925,183 +1062,41 @@ const StationDetails = () => {
         <Grid container spacing={4}>
           {/* Left Column - 65% width */}
           <Grid item xs={12} lg={8}>
-            {/* Station Reviews - Moved to top of left column */}
-            <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.08)', mb: 4 }}>
+            {/* Booking Timeline */}
+            <Card sx={{ mb: 4, borderRadius: 3 }}>
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#1f2937' }}>
-                  Station Reviews
-                </Typography>
-                
-                {/* Add Review Button - Only shown if user hasn't reviewed yet */}
-                {user && checkUserCanReview() && !getUserReview() && !showReviewForm && (
-                  <Button 
-                    variant="contained" 
-                    onClick={() => {
-                      setShowReviewForm(true);
-                    }}
-                    sx={{ mb: 3 }}
-                  >
-                    Write a Review
-                  </Button>
-                )}
-                
-                {/* Delete Review Button - Only shown if user has already reviewed */}
-                {user && getUserReview() && !showReviewForm && (
-                  <Button 
-                    variant="outlined" 
-                    color="error"
-                    onClick={handleDeleteReview}
-                    sx={{ mb: 3 }}
-                  >
-                    Delete Review
-                  </Button>
-                )}
-                
-                {/* Review Form */}
-                {showReviewForm && (
-                  <Card sx={{ mb: 3, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
-                    <Typography variant="h6" sx={{ mb: 2 }}>
-                      Write Your Review
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <Typography sx={{ mr: 2 }}>Rating:</Typography>
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <IconButton
-                          key={star}
-                          sx={{ 
-                            fontSize: 32, 
-                            color: reviewForm.rating >= star ? '#fbbf24' : '#d1d5db',
-                            '&:hover': { color: '#fbbf24' }
-                          }}
-                          onClick={() => {
-                            setReviewForm(prev => ({ ...prev, rating: star }));
-                          }}
-                        >
-                          ★
-                        </IconButton>
-                      ))}
-                    </Box>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={4}
-                      variant="outlined"
-                      placeholder="Share your experience at this station..."
-                      value={reviewForm.comment}
-                      onChange={(e) => {
-                        setReviewForm(prev => ({ ...prev, comment: e.target.value }));
-                      }}
-                      sx={{ mb: 2 }}
-                    />
-                    <Box sx={{ display: 'flex', gap: 2 }}>
-                      <Button 
-                        variant="contained" 
-                        onClick={handleReviewSubmit}
-                        disabled={reviewForm.rating === 0}
-                      >
-                        Submit Review
-                      </Button>
-                      <Button 
-                        variant="outlined" 
-                        onClick={() => {
-                          setShowReviewForm(false);
-                          // Reset form to initial values
-                          setReviewForm({
-                            rating: 0,
-                            comment: ''
-                          });
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </Box>
-                  </Card>
-                )}
-                
-                {/* Reviews List */}
-                {reviews.length > 0 ? (
-                  <Stack spacing={3}>
-                    {reviews.map((review) => (
-                      <Box key={review._id} sx={{ borderBottom: '1px solid #e5e7eb', pb: 3 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <Avatar 
-                            src={review.userId?.personalInfo?.profileImage} 
-                            sx={{ width: 40, height: 40, mr: 2 }}
-                          >
-                            {review.userId?.personalInfo?.firstName?.[0] || 'U'}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                              {review.userId?.personalInfo?.firstName} {review.userId?.personalInfo?.lastName}
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Box
-                                  key={star}
-                                  component="span"
-                                  sx={{ 
-                                    fontSize: 16, 
-                                    color: review.rating >= star ? '#fbbf24' : '#d1d5db'
-                                  }}
-                                >
-                                  ★
-                                </Box>
-                              ))}
-                              <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
-                                {new Date(review.createdAt).toLocaleDateString()}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Box>
-                        {review.comment && (
-                          <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-                            {review.comment}
-                          </Typography>
-                        )}
-                        {/* Like/Dislike Buttons */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 2 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleLikeReview(review._id)}
-                              sx={{ 
-                                color: review.likedBy?.includes(user?._id) ? '#3b82f6' : 'text.secondary',
-                                '&:hover': { color: '#3b82f6' }
-                              }}
-                            >
-                              <ThumbUpIcon fontSize="small" />
-                            </IconButton>
-                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                              {review.likes || 0}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleDislikeReview(review._id)}
-                              sx={{ 
-                                color: review.dislikedBy?.includes(user?._id) ? '#ef4444' : 'text.secondary',
-                                '&:hover': { color: '#ef4444' }
-                              }}
-                            >
-                              <ThumbDownIcon fontSize="small" />
-                            </IconButton>
-                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                              {review.dislikes || 0}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Box>
-                    ))}
-                  </Stack>
-                ) : (
-                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                    No reviews yet. {user && checkUserCanReview() ? 'Be the first to add a review!' : 'Only users who have completed a booking can review this station.'}
-                  </Typography>
-                )}
+                <BookingTimeline 
+                  stationId={id}
+                  chargerType={bookingForm.chargerType}
+                  onSlotSelect={(timeSlot) => {
+                    // Convert to local datetime value format
+                    const toLocalDateTimeValue = (date) => {
+                      const pad = (n) => String(n).padStart(2, '0');
+                      const yyyy = date.getFullYear();
+                      const mm = pad(date.getMonth() + 1);
+                      const dd = pad(date.getDate());
+                      const hh = pad(date.getHours());
+                      const min = pad(date.getMinutes());
+                      return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+                    };
+                    
+                    // Update the booking form with the selected time slot
+                    setBookingForm(prev => ({
+                      ...prev,
+                      startTime: toLocalDateTimeValue(new Date(timeSlot.startTime)),
+                      endTime: toLocalDateTimeValue(new Date(timeSlot.endTime)),
+                      // If chargerType is not already set, we might want to set a default or let the user select
+                      // But we'll leave it as is since it should be set by the vehicle selection
+                    }));
+                    
+                    // Automatically open the booking dialog when a time slot is selected
+                    setBookingDialog(true);
+                  }}
+                  selectedVehicle={bookingForm.selectedVehicleIndex}
+                />
               </CardContent>
             </Card>
-
+            
             {/* Charging Overview */}
             <Card sx={{ mb: 4, borderRadius: 3 }}>
               <CardContent sx={{ p: 3 }}>
@@ -1270,8 +1265,256 @@ const StationDetails = () => {
               </CardContent>
             </Card>
 
-            {/* Station Images */}
-            <Card sx={{ mb: 4, borderRadius: 3 }}>
+            {/* Station Reviews - Moved to below Charging Overview */}
+            <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.08)', mb: 4 }}>              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#1f2937' }}>
+                  Station Reviews
+                </Typography>
+                
+                {/* Add Review Button - Only shown if user hasn't reviewed yet */}
+                {user && checkUserCanReview() && !getUserReview() && !showReviewForm && (
+                  <Button 
+                    variant="contained" 
+                    onClick={() => {
+                      setShowReviewForm(true);
+                    }}
+                    sx={{ mb: 3 }}
+                  >
+                    Write a Review
+                  </Button>
+                )}
+                
+                {/* Delete Review Button - Only shown if user has already reviewed */}
+                {user && getUserReview() && !showReviewForm && (
+                  <Button 
+                    variant="outlined" 
+                    color="error"
+                    onClick={handleDeleteReview}
+                    sx={{ mb: 3 }}
+                  >
+                    Delete Review
+                  </Button>
+                )}
+                
+                {/* Review Form */}
+                {showReviewForm && (
+                  <Card sx={{ mb: 3, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                    <Typography variant="h6" sx={{ mb: 2 }}>
+                      Write Your Review
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <Typography sx={{ mr: 2 }}>Rating:</Typography>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <IconButton
+                          key={star}
+                          sx={{ 
+                            fontSize: 32, 
+                            color: reviewForm.rating >= star ? '#fbbf24' : '#d1d5db',
+                            '&:hover': { color: '#fbbf24' }
+                          }}
+                          onClick={() => {
+                            setReviewForm(prev => ({ ...prev, rating: star }));
+                          }}
+                        >
+                          ★
+                        </IconButton>
+                      ))}
+                    </Box>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={4}
+                      variant="outlined"
+                      placeholder="Share your experience at this station..."
+                      value={reviewForm.comment}
+                      onChange={(e) => {
+                        setReviewForm(prev => ({ ...prev, comment: e.target.value }));
+                      }}
+                      sx={{ mb: 2 }}
+                    />
+                    <Box sx={{ display: 'flex', gap: 2 }}>
+                      <Button 
+                        variant="contained" 
+                        onClick={handleReviewSubmit}
+                        disabled={reviewForm.rating === 0}
+                      >
+                        Submit Review
+                      </Button>
+                      <Button 
+                        variant="outlined" 
+                        onClick={() => {
+                          setShowReviewForm(false);
+                          // Reset form to initial values
+                          setReviewForm({
+                            rating: 0,
+                            comment: ''
+                          });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </Box>
+                  </Card>
+                )}
+                
+                {/* Sentiment Filter Buttons */}
+                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    onClick={() => loadReviews()}
+                  >
+                    All Reviews
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    onClick={() => loadReviews('Positive')}
+                    sx={{ 
+                      color: '#10b981',
+                      borderColor: '#10b981',
+                      '&:hover': {
+                        backgroundColor: 'rgba(16, 185, 129, 0.04)',
+                        borderColor: '#10b981'
+                      }
+                    }}
+                  >
+                    Positive
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    onClick={() => loadReviews('Neutral')}
+                    sx={{ 
+                      color: '#94a3b8',
+                      borderColor: '#94a3b8',
+                      '&:hover': {
+                        backgroundColor: 'rgba(148, 163, 184, 0.04)',
+                        borderColor: '#94a3b8'
+                      }
+                    }}
+                  >
+                    Neutral
+                  </Button>
+                  <Button 
+                    variant="outlined" 
+                    size="small"
+                    onClick={() => loadReviews('Negative')}
+                    sx={{ 
+                      color: '#ef4444',
+                      borderColor: '#ef4444',
+                      '&:hover': {
+                        backgroundColor: 'rgba(239, 68, 68, 0.04)',
+                        borderColor: '#ef4444'
+                      }
+                    }}
+                  >
+                    Negative
+                  </Button>
+                </Box>
+                
+                {/* Reviews List */}
+                {reviews.length > 0 ? (
+                  <Stack spacing={3}>
+                    {reviews.map((review) => (
+                      <Box key={review._id} sx={{ borderBottom: '1px solid #e5e7eb', pb: 3 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                          <Avatar 
+                            src={review.userId?.personalInfo?.profileImage} 
+                            sx={{ width: 40, height: 40, mr: 2 }}
+                          >
+                            {review.userId?.personalInfo?.firstName?.[0] || 'U'}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                              {review.userId?.personalInfo?.firstName} {review.userId?.personalInfo?.lastName}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Box
+                                  key={star}
+                                  component="span"
+                                  sx={{ 
+                                    fontSize: 16, 
+                                    color: review.rating >= star ? '#fbbf24' : '#d1d5db'
+                                  }}
+                                >
+                                  ★
+                                </Box>
+                              ))}
+                              <Typography variant="caption" sx={{ ml: 1, color: 'text.secondary' }}>
+                                {new Date(review.createdAt).toLocaleDateString()}
+                              </Typography>
+                              {/* Sentiment Badge */}
+                              {review.sentimentClassification && (
+                                <Chip
+                                  label={review.sentimentClassification}
+                                  size="small"
+                                  sx={{ 
+                                    ml: 1,
+                                    height: 20,
+                                    fontSize: '0.7rem',
+                                    backgroundColor: 
+                                      review.sentimentClassification === 'Positive' ? '#10b981' :
+                                      review.sentimentClassification === 'Negative' ? '#ef4444' :
+                                      '#94a3b8',
+                                    color: 'white'
+                                  }}
+                                />
+                              )}
+                            </Box>
+                          </Box>
+                        </Box>
+                        {review.comment && (
+                          <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+                            {review.comment}
+                          </Typography>
+                        )}
+                        {/* Like/Dislike Buttons */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleLikeReview(review._id)}
+                              sx={{ 
+                                color: review.likedBy?.includes(user?._id) ? '#3b82f6' : 'text.secondary',
+                                '&:hover': { color: '#3b82f6' }
+                              }}
+                            >
+                              <ThumbUpIcon fontSize="small" />
+                            </IconButton>
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                              {review.likes || 0}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleDislikeReview(review._id)}
+                              sx={{ 
+                                color: review.dislikedBy?.includes(user?._id) ? '#ef4444' : 'text.secondary',
+                                '&:hover': { color: '#ef4444' }
+                              }}
+                            >
+                              <ThumbDownIcon fontSize="small" />
+                            </IconButton>
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                              {review.dislikes || 0}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                    No reviews found for this filter. {user && checkUserCanReview() ? 'Be the first to add a review!' : 'Only users who have completed a booking can review this station.'}
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Station Images */}            <Card sx={{ mb: 4, borderRadius: 3 }}>
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#1f2937' }}>
                   Station Images
@@ -1302,38 +1545,6 @@ const StationDetails = () => {
               </CardContent>
             </Card>
 
-            {/* Station Details */}
-            <Card sx={{ mb: 4, borderRadius: 3 }}>
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#1f2937' }}>
-                  Station Details
-                </Typography>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    Address:
-                  </Typography>
-                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    {station.location?.address}, {station.location?.city}, {station.location?.state} {station.location?.pincode}
-                  </Typography>
-                </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    Operating Hours:
-                  </Typography>
-                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    {station.operational?.operatingHours?.is24Hours ? '24/7' : 'Limited Hours'}
-                  </Typography>
-                </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    Pricing:
-                  </Typography>
-                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    ₹{station.pricing?.pricePerMinute ?? station.pricing?.basePrice ?? 0} per minute
-                  </Typography>
-                </Box>
-              </CardContent>
-            </Card>
           </Grid>
 
           {/* Right Column - 35% width */}
@@ -1344,13 +1555,45 @@ const StationDetails = () => {
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#1f2937' }}>
                   Map and Directions
                 </Typography>
-                {/* Small Map Preview */}
+                <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                  Route from your current location to this charging station is displayed on the map below.
+                </Typography>
+                {/* Small Map Preview with Route */}
                 <Box sx={{ mb: 2, height: 200 }}>
                   <StationMapPreview station={station} height={200} />
                 </Box>
                 <Box sx={{ mb: 2 }}>
-                  <GetDirectionsButton onClick={() => setDirectionsDialog(true)} />
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    startIcon={<DirectionsIcon />}
+                    onClick={() => {
+                      const stationPosition = {
+                        lat: station?.location?.coordinates?.latitude || station?.location?.latitude || station?.lat || 0,
+                        lng: station?.location?.coordinates?.longitude || station?.location?.longitude || station?.lng || 0
+                      };
+                      if (stationPosition.lat && stationPosition.lng) {
+                        const url = `https://www.google.com/maps/dir/?api=1&destination=${stationPosition.lat},${stationPosition.lng}`;
+                        window.open(url, '_blank');
+                      }
+                    }}
+                    sx={{
+                      py: 1.5,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                        transform: 'translateY(-1px)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                      },
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Open in Google Maps
+                  </Button>
                 </Box>
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic', textAlign: 'center' }}>
+                  Click above to get detailed directions in Google Maps
+                </Typography>
               </CardContent>
             </Card>
 
@@ -1384,160 +1627,23 @@ const StationDetails = () => {
         </Grid>
 
         {/* Booking Dialog */}
-        <Dialog open={bookingDialog} onClose={() => setBookingDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Book Charging Slot</DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel shrink>Charger Type</InputLabel>
-                  <Box sx={{
-                    border: '1px solid #e5e7eb',
-                    borderRadius: 1,
-                    px: 2,
-                    py: 1.5,
-                    color: bookingForm.chargerType ? 'text.primary' : 'text.secondary'
-                  }}>
-                    {bookingForm.chargerType
-                      ? bookingForm.chargerType.replace('_',' ').toUpperCase()
-                      : 'Auto-selected based on your vehicle'}
-                  </Box>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth required>
-                  <InputLabel>Duration</InputLabel>
-                  <Select
-                    value={bookingForm.duration}
-                    label="Duration"
-                    onChange={(e) => handleDurationChange(e.target.value)}
-                  >
-                    {DURATION_OPTIONS.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Start Time"
-                  type="datetime-local"
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{ 
-                    min: getMinStartTime()
-                  }}
-                  value={bookingForm.startTime || ''}
-                  onChange={(e) => handleStartTimeChange(e.target.value)}
-                  required
-                />
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="End Time"
-                  type="datetime-local"
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{ readOnly: true }}
-                  value={bookingForm.endTime || ''}
-                  required
-                />
-              </Grid>
-              
-              {/* estimated Total */}
-              <Grid item xs={12}>
-                <Box sx={{ mt: 0.5, p: 2, borderRadius: 2, bgcolor: '#f0f9ff', border: '1px solid #0ea5e9' }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontWeight: 500 }}>
-                    estimated Total
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#0ea5e9' }}>
-                    {(() => {
-                      const ppm = Number(station?.pricing?.pricePerMinute ?? station?.pricing?.basePrice ?? 0);
-                      const mins = Math.round((Number(bookingForm.duration || 0)) * 60);
-                      const total = ppm * (Number.isFinite(mins) ? mins : 0);
-                      return `₹${(Number.isFinite(total) ? total : 0).toFixed(2)}`;
-                    })()}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {(() => {
-                      const ppm = Number(station?.pricing?.pricePerMinute ?? station?.pricing?.basePrice ?? 0);
-                      const mins = Math.round((Number(bookingForm.duration || 0)) * 60);
-                      return `₹${ppm}/minute × ${mins} minutes`;
-                    })()}
-                  </Typography>
-                </Box>
-              </Grid>
-              
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: 'text.secondary' }}>
-                  Vehicle Selection (for charging optimization)
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Select Your Vehicle</InputLabel>
-                  <Select
-                    value={bookingForm.selectedVehicleIndex}
-                    onChange={(e) => setBookingForm({
-                      ...bookingForm,
-                      selectedVehicleIndex: e.target.value
-                    })}
-                    label="Select Your Vehicle"
-                  >
-                    {myVehicles.length === 0 ? (
-                      <MenuItem value="" disabled>
-                        No vehicles found
-                      </MenuItem>
-                    ) : (
-                      myVehicles.map((v, idx) => (
-                        <MenuItem key={`${v.make}-${v.model}-${idx}`} value={String(idx)}>
-                          {`${v.make || ''} ${v.model || ''}`.trim()} {v.year ? `(${v.year})` : ''} {v.batteryCapacity ? `- ${v.batteryCapacity} kWh` : ''}
-                        </MenuItem>
-                      ))
-                    )}
-                  </Select>
-                </FormControl>
-                {myVehicles.length === 0 && (
-                  <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                    <Button size="small" variant="outlined" onClick={() => {
-                      localStorage.setItem('openAddVehicle', '1');
-                      navigate('/home');
-                    }}>
-                      Add Vehicle
-                    </Button>
-                    <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
-                      You need to add a vehicle before booking
-                    </Typography>
-                  </Box>
-                )}
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                {/* Hidden from UI: current charge is assumed for optimization */}
-              </Grid>
-              
-              <Grid item xs={12} sm={6}>
-                {/* Hidden from UI: target charge is assumed for optimization */}
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setBookingDialog(false)}>Cancel</Button>
-            <Button 
-              onClick={handleBookingSubmit} 
-              variant="contained" 
-              disabled={bookingLoading}
-            >
-              {bookingLoading ? 'Processing...' : 'Pay & Book Now'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+        <BookingModal 
+          open={bookingDialog}
+          onClose={() => setBookingDialog(false)}
+          bookingForm={bookingForm}
+          setBookingForm={setBookingForm}
+          myVehicles={myVehicles}
+          DURATION_OPTIONS={DURATION_OPTIONS}
+          handleDurationChange={handleDurationChange}
+          handleStartTimeChange={handleStartTimeChange}
+          handleBookingSubmit={handleBookingSubmit}
+          bookingLoading={bookingLoading}
+          station={station}
+          recommendation={recommendation}
+          recommendationLoading={recommendationLoading}
+          navigate={navigate}
+          getMinStartTime={getMinStartTime}
+        />
 
         {/* Snackbar */}
         <Snackbar

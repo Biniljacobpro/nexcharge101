@@ -79,7 +79,18 @@ class CorporateService {
   async getRecentBookings(limit = 10) {
     return this.makeRequest(`/corporate/bookings/recent?limit=${limit}`);
   }
-
+  
+  // All bookings with filtering
+  async getAllBookings(page = 1, limit = 10, franchiseId = 'all', status = 'all') {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      ...(franchiseId !== 'all' && { franchiseId }),
+      ...(status !== 'all' && { status })
+    });
+    return this.makeRequest(`/corporate/bookings/all?${params}`);
+  }
+  
   // Franchise management
   async getFranchiseOwners(page = 1, limit = 10, status = '', search = '') {
     const params = new URLSearchParams({
@@ -147,6 +158,15 @@ class CorporateService {
     });
   }
 
+  // Churn risk methods
+  async getChurnRiskUsers(risk = '') {
+    const params = new URLSearchParams();
+    if (risk) {
+      params.append('risk', risk);
+    }
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    return this.makeRequest(`/corporate/users/churn-risk${queryString}`);
+  }
 
   // Future-ready methods for extensibility
   async getStationAnalytics(stationId) {

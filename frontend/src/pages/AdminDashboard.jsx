@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import AdminCommissionsPage from './AdminCommissionsPage';
 import {
   Box,
   Container,
@@ -23,7 +24,6 @@ import {
   ListItemIcon,
   ListItemText,
   Avatar,
-  Badge,
   TextField,
   InputAdornment,
   Switch,
@@ -59,19 +59,20 @@ import {
   Psychology as PsychologyIcon,
   Security as SecurityIcon,
   Analytics as AnalyticsIcon,
-  Build as BuildIcon,
   Monitor as MonitorIcon,
-  Assignment as AssignmentIcon,
   Menu as MenuIcon,
   Refresh as RefreshIcon,
   MoreVert as MoreVertIcon,
   Delete as DeleteIcon,
-  RequestQuote as RequestQuoteIcon
+  AttachMoney as AttachMoneyIcon
 } from '@mui/icons-material';
 import NotificationDropdown from '../components/NotificationDropdown';
 import { useNavigate } from 'react-router-dom';
 import nexchargeLogo from '../assets/nexcharge-high-resolution-logo-transparent.png';
 import * as api from '../utils/api';
+import FraudMonitoring from '../components/FraudMonitoring';
+import Reports from '../components/Reports';
+
 
 const StatCard = ({ title, value, change, icon, color = 'primary', status }) => (
   <Card sx={{ height: '100%', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
@@ -783,7 +784,6 @@ const AdminDashboard = () => {
   // Vehicle Requests state
   const [vehicleRequests, setVehicleRequests] = useState([]);
   const [vehicleRequestsLoading, setVehicleRequestsLoading] = useState(false);
-  const [vehicleRequestsError, setVehicleRequestsError] = useState('');
   const [vehicleRequestActionSuccess, setVehicleRequestActionSuccess] = useState('');
   const [vehicleRequestActionError, setVehicleRequestActionError] = useState('');
   const [activeVehicleTab, setActiveVehicleTab] = useState('vehicles');
@@ -872,15 +872,13 @@ const AdminDashboard = () => {
   const loadVehicleRequests = async (filters = {}) => {
     try {
       setVehicleRequestsLoading(true);
-      setVehicleRequestsError('');
-      
+
       // Import the API function
       const { getVehicleRequestsApi } = await import('../utils/api');
       const data = await getVehicleRequestsApi(filters);
       return data.success ? data.data : [];
     } catch (error) {
       console.error('Error loading vehicle requests:', error);
-      setVehicleRequestsError(error.message || 'Failed to load vehicle requests');
       return [];
     } finally {
       setVehicleRequestsLoading(false);
@@ -1356,12 +1354,9 @@ const AdminDashboard = () => {
     { id: 'corporate-admins', label: 'Corporate Admin Management', icon: <BusinessIcon /> },
     { id: 'stations', label: 'Station Management', icon: <StorageIcon /> },
     { id: 'vehicles', label: 'Vehicle Management', icon: <ShoppingCartIcon /> },
+    { id: 'commissions', label: 'Commission Management', icon: <AttachMoneyIcon /> },
+    { id: 'fraud-monitoring', label: 'Fraud Monitoring', icon: <SecurityIcon /> },
     { id: 'analytics', label: 'Analytics', icon: <AnalyticsIcon /> },
-    { id: 'ai-models', label: 'AI Models', icon: <PsychologyIcon /> },
-    { id: 'system', label: 'System Health', icon: <MonitorIcon /> },
-    { id: 'security', label: 'Security', icon: <SecurityIcon /> },
-    { id: 'integrations', label: 'Integrations', icon: <BuildIcon /> },
-    { id: 'policies', label: 'Policies', icon: <AssignmentIcon /> },
     { id: 'reports', label: 'Reports', icon: <BarChartIcon /> },
     { id: 'settings', label: 'Settings', icon: <SettingsIcon /> },
   ];
@@ -1479,12 +1474,8 @@ const AdminDashboard = () => {
                 stations: 'Manage charging stations and operational status',
                 vehicles: 'Manage vehicle catalog and user requests',
                 analytics: 'Platform analytics and insights',
-                'ai-models': 'Manage AI models and configurations',
-                system: 'System health and uptime metrics',
-                security: 'Security and access controls',
-                integrations: 'Third-party integrations and settings',
-                policies: 'Policy management and permissions',
-                reports: 'Operational and financial reports'
+                reports: 'Operational and financial reports',
+                'fraud-monitoring': 'Monitor and review fraudulent booking attempts'
               }[activeSection] || ' '
               }
             </Typography>
@@ -1896,6 +1887,11 @@ const AdminDashboard = () => {
                 onAddCorporateAdmin={() => setAddAdminDialogOpen(true)}
                 onRefresh={loadDashboard}
               />
+            )}
+
+            {/* Commissions Section */}
+            {activeSection === 'commissions' && (
+              <AdminCommissionsPage />
             )}
 
             {/* Analytics Section */}
@@ -2850,8 +2846,18 @@ const AdminDashboard = () => {
               </Box>
             )}
 
+            {/* Fraud Monitoring Section */}
+            {activeSection === 'fraud-monitoring' && (
+              <FraudMonitoring />
+            )}
+            
+            {/* Reports Section */}
+            {activeSection === 'reports' && (
+              <Reports />
+            )}
+            
             {/* Other sections can be added here */}
-            {activeSection !== 'dashboard' && activeSection !== 'users' && activeSection !== 'corporate-admins' && activeSection !== 'add-corporate-admin' && activeSection !== 'vehicles' && activeSection !== 'settings' && activeSection !== 'analytics' && activeSection !== 'stations' && (
+            {activeSection !== 'dashboard' && activeSection !== 'users' && activeSection !== 'corporate-admins' && activeSection !== 'add-corporate-admin' && activeSection !== 'vehicles' && activeSection !== 'settings' && activeSection !== 'analytics' && activeSection !== 'stations' && activeSection !== 'reports' && activeSection !== 'fraud-monitoring' && (
               <Box sx={{ textAlign: 'center', py: 8 }}>
                 <Typography variant="h5" color="text.secondary">
                   {navigationItems.find(item => item.id === activeSection)?.label} - Coming Soon

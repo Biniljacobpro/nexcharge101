@@ -98,7 +98,7 @@ export const sendApprovalEmail = async (application, user, password) => {
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/login" 
+              <a href="${process.env.FRONTEND_URL}/login" 
                  style="background: linear-gradient(135deg, #00b894, #00a085); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block; box-shadow: 0 4px 15px rgba(0,184,148,0.3);">
                 🚀 Access Your Dashboard
               </a>
@@ -183,7 +183,7 @@ export const sendRejectionEmail = async (application, reviewNotes) => {
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/apply-corporate" 
+              <a href="${process.env.FRONTEND_URL}/apply-corporate" 
                  style="background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 15px 30px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block; box-shadow: 0 4px 15px rgba(52,152,219,0.3);">
                 🔄 Reapply in the Future
               </a>
@@ -484,7 +484,7 @@ export const sendPasswordResetOtpEmail = async ({ recipientEmail, recipientName,
               </div>
             </div>
             <p style="color:#e67e22;"><strong>Note:</strong> This code will expire in 10 minutes. Do not share it with anyone.</p>
-            <p>If you didn't request this, you can safely ignore this email.</p>
+            <p>If you didn’t request this, you can safely ignore this email.</p>
             <div style="text-align:center; margin-top: 16px;">
               <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/forgot-password" style="background:#00b894;color:#fff;padding:12px 18px;border-radius:24px;text-decoration:none;display:inline-block;">Enter OTP</a>
             </div>

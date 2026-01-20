@@ -1,5 +1,6 @@
 import Station from '../models/station.model.js';
 import Vehicle from '../models/vehicle.model.js';
+import Booking from '../models/booking.model.js';
 
 // GET /api/public/stations - Get all public stations
 export const getPublicStations = async (req, res) => {
@@ -110,5 +111,63 @@ export const getPublicVehicleById = async (req, res) => {
   } catch (error) {
     console.error('Error fetching public vehicle:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// GET /api/public/bookings/station/:stationId/timeline - Get bookings for timeline visualization
+export const getStationBookingsTimeline = async (req, res) => {
+  try {
+    console.log('getStationBookingsTimeline called with params:', req.params);
+    console.log('getStationBookingsTimeline called with query:', req.query);
+    
+    const { stationId } = req.params;
+    const { date, chargerType } = req.query;
+
+    if (!date) {
+      return res.status(400).json({
+        success: false,
+        message: 'Date parameter is required'
+      });
+    }
+
+    // Parse the date and create start/end times for the day
+    const startDate = new Date(date);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date(date);
+    endDate.setHours(23, 59, 59, 999);
+
+    // Query for bookings on the specified date
+    const query = {
+      stationId,
+      startTime: { $lte: endDate },
+      endTime: { $gte: startDate },
+      status: { $in: ['pending', 'confirmed', 'active'] },
+      paymentStatus: 'success' // Only show bookings with successful payment
+    };
+
+    // Filter by charger type if provided
+    if (chargerType) {
+      query.chargerType = chargerType;
+    }
+
+    console.log('Querying bookings with:', query);
+    const bookings = await Booking.find(query)
+      .select('startTime endTime chargerType paymentStatus')
+      .sort({ startTime: 1 });
+    
+    console.log('Found bookings:', bookings.length);
+
+    res.json({
+      success: true,
+      data: bookings
+    });
+
+  } catch (error) {
+    console.error('Error getting station bookings timeline:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
   }
 };

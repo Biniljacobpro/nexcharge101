@@ -2,6 +2,7 @@ import User from '../models/user.model.js';
 import Franchise from '../models/franchise.model.js';
 import Station from '../models/station.model.js';
 import Booking from '../models/booking.model.js';
+import Review from '../models/review.model.js';
 import bcrypt from 'bcryptjs';
 
 // Helper function to get franchise ID from user
@@ -875,11 +876,15 @@ export const deleteStation = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Station not found' });
     }
 
+    // Delete all reviews associated with this station
+    await Review.deleteMany({ stationId: stationId });
+
+    // Delete the station
     await Station.findByIdAndDelete(stationId);
 
     res.json({
       success: true,
-      message: 'Station deleted successfully'
+      message: 'Station and associated reviews deleted successfully'
     });
   } catch (error) {
     console.error('Error deleting station:', error);

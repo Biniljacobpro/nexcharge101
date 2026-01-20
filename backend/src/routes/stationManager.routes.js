@@ -14,7 +14,8 @@ import {
   getStationDetails,
   updateStationDetails,
   uploadStationImages,
-  deleteStationImage
+  deleteStationImage,
+  getSentimentAnalytics
 } from '../controllers/stationManager.controller.js';
 
 const router = express.Router();
@@ -43,5 +44,8 @@ router.patch('/maintenance/:id', updateMaintenanceTask);
 // Feedback routes
 router.get('/feedback', getFeedback);
 router.post('/feedback/:id/respond', respondToFeedback);
+
+// Sentiment analytics routes
+router.get('/analytics/sentiment', getSentimentAnalytics);
 
 export default router;

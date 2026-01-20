@@ -195,11 +195,39 @@ export const adminLiveStats = async () => {
 };
 
 // Payments API
-export const getMyPaymentsApi = async () => {
-  const res = await authFetch(`${API_BASE}/payments/my`);
+export const getMyPaymentsApi = async (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  const res = await authFetch(`${API_BASE}/payments/my${qs ? `?${qs}` : ''}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || data.error || 'Failed to load payments');
   return Array.isArray(data?.data) ? data.data : [];
+};
+
+export const getPaymentDetails = async (paymentId) => {
+  const res = await authFetch(`${API_BASE}/payments/details/${paymentId}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || data.error || 'Failed to load payment details');
+  return data.data;
+};
+
+export const requestRefund = async (paymentId, reason, amount = null) => {
+  const res = await authFetch(`${API_BASE}/payments/refund/${paymentId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason, amount })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || data.error || 'Failed to request refund');
+  return data.data;
+};
+
+export const retryPayment = async (paymentId) => {
+  const res = await authFetch(`${API_BASE}/payments/retry/${paymentId}`, {
+    method: 'POST'
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || data.error || 'Failed to retry payment');
+  return data.data;
 };
 
 export const downloadReceiptPdf = async (bookingId) => {
@@ -560,6 +588,65 @@ export const stopChargingApi = async (bookingId) => {
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || data.error || 'Failed to stop charging');
   return data;
+};
+
+// Commission APIs
+export const getFranchiseCommissions = async (franchiseId, params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  const res = await authFetch(`${API_BASE}/commissions/franchise/${franchiseId}${qs ? `?${qs}` : ''}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to fetch commissions');
+  return data;
+};
+
+export const getCorporateCommissions = async (corporateId, params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  const res = await authFetch(`${API_BASE}/commissions/corporate/${corporateId}${qs ? `?${qs}` : ''}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to fetch commissions');
+  return data;
+};
+
+export const getCommissionStats = async (entityType, entityId) => {
+  const res = await authFetch(`${API_BASE}/commissions/${entityType}/${entityId}/stats`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to fetch commission stats');
+  return data;
+};
+
+export const getMonthlyCommissionSummary = async (entityType, entityId, year) => {
+  const res = await authFetch(`${API_BASE}/commissions/${entityType}/${entityId}/monthly?year=${year}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to fetch monthly summary');
+  return data.data;
+};
+
+export const getAllCommissions = async (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  const res = await authFetch(`${API_BASE}/commissions/all${qs ? `?${qs}` : ''}`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to fetch all commissions');
+  return data;
+};
+
+export const approveCommission = async (commissionId) => {
+  const res = await authFetch(`${API_BASE}/commissions/${commissionId}/approve`, {
+    method: 'PATCH'
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to approve commission');
+  return data.data;
+};
+
+export const markCommissionPaid = async (commissionId, paymentData) => {
+  const res = await authFetch(`${API_BASE}/commissions/${commissionId}/pay`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(paymentData)
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to mark commission as paid');
+  return data.data;
 };
 
 export default API_BASE;

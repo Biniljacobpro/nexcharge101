@@ -16,8 +16,10 @@ const PORT = process.env.PORT || 4000;
     // Start the booking reminder job (only in local development)
     if (process.env.NODE_ENV !== 'production') {
       const { startMaintenanceJob } = await import('./jobs/maintenanceScheduler.js');
+      const { scheduleChurnPredictionJob } = await import('./jobs/churnScheduler.js');
       startBookingReminderJob();
       startMaintenanceJob();
+      scheduleChurnPredictionJob();
     }
     
     app.listen(PORT, () => console.log(`API listening on :${PORT}`));

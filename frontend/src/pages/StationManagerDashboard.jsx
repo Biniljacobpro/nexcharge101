@@ -66,12 +66,17 @@ import {
   People,
   Speed,
   CheckCircle,
+  Star,
   Warning,
   Error,
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
+  VisibilityOff as VisibilityOffIcon,
+  PhotoCamera as PhotoCameraIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
   LocationOn,
   Schedule,
   Phone,
@@ -103,9 +108,9 @@ const navigationItems = [
   { id: 'bookings', label: 'Booking Management', icon: <BookingIcon />, description: 'Approve, monitor, or cancel reservations' },
   { id: 'maintenance', label: 'Maintenance Scheduling', icon: <MaintenanceIcon />, description: 'Block slots during repairs' },
   { id: 'maintenance-predictions', label: 'Predictive Maintenance', icon: <MaintenanceIcon />, description: 'View maintenance risk predictions' },
-  { id: 'pricing', label: 'Pricing & Offers', icon: <PricingIcon />, description: 'Set station-level pricing and promotions' },
+  { id: 'pricing', label: 'Offers', icon: <PricingIcon />, description: 'Set station-level pricing and promotions' },
   { id: 'reports', label: 'Performance Reports', icon: <ReportsIcon />, description: 'Utilization rates, uptime, and user ratings' },
-  { id: 'feedback', label: 'Feedback Management', icon: <FeedbackIcon />, description: 'View and respond to customer reviews' },
+  { id: 'feedback', label: 'Reviews', icon: <FeedbackIcon />, description: 'View customer reviews' },
   { id: 'profile', label: 'Profile Settings', icon: <ProfileIcon />, description: 'Manage account and preferences' }
 ];
 
@@ -115,6 +120,7 @@ const StationManagerDashboard = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [user, setUser] = useState(null);
   const [dashboardData, setDashboardData] = useState(null);
+  const [feedbackData, setFeedbackData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   
@@ -165,6 +171,40 @@ const StationManagerDashboard = () => {
   const [availableManagers, setAvailableManagers] = useState([]);
   const [managersLoading, setManagersLoading] = useState(false);
 
+  // Profile editing states
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  
+  // Profile form states
+  const [profileForm, setProfileForm] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    address: ''
+  });
+  
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  
+  const [imageForm, setImageForm] = useState({
+    imageUrl: '',
+    file: null
+  });
+  
+  // Password visibility
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Validation states
+  const [profileErrors, setProfileErrors] = useState({});
+  const [passwordErrors, setPasswordErrors] = useState({});
+  const [imageErrors, setImageErrors] = useState({});
+
   
   const navigate = useNavigate();
 
@@ -173,11 +213,24 @@ const StationManagerDashboard = () => {
     loadDashboardData();
   }, []);
 
+  // Load feedback data when feedback section is active
+  useEffect(() => {
+    if (activeSection === 'feedback' && !feedbackData) {
+      loadFeedbackData();
+    }
+  }, [activeSection, feedbackData]);
+
   const loadUserData = async () => {
     try {
       const { getMe } = await import('../utils/api');
       const me = await getMe();
       setUser(me);
+      setProfileForm({
+        firstName: me.firstName || '',
+        lastName: me.lastName || '',
+        phone: me.phone || '',
+        address: me.address || ''
+      });
     } catch (error) {
       console.error('Error loading user data:', error);
       navigate('/login');
@@ -194,6 +247,24 @@ const StationManagerDashboard = () => {
       setSnackbar({
         open: true,
         message: error.message || 'Failed to load dashboard data',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load feedback data for the feedback section
+  const loadFeedbackData = async () => {
+    try {
+      setLoading(true);
+      const response = await stationManagerService.getFeedback();
+      setFeedbackData(response.data);
+    } catch (error) {
+      console.error('Error loading feedback data:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'Failed to load feedback data',
         severity: 'error'
       });
     } finally {
@@ -280,6 +351,150 @@ const StationManagerDashboard = () => {
 
   const handleBulkUpdatePricing = () => {
     console.log('Bulk update pricing');
+  };
+
+  // Profile validation functions
+  const validateProfile = () => {
+    const errors = {};
+    
+    if (!profileForm.firstName.trim()) {
+      errors.firstName = 'First name is required';
+    } else if (!/^[A-Za-z]+$/.test(profileForm.firstName.trim())) {
+      errors.firstName = 'Letters only, no spaces';
+    } else if (profileForm.firstName.trim().length < 2) {
+      errors.firstName = 'First name must be at least 2 characters';
+    } else if (profileForm.firstName.trim().length > 10) {
+      errors.firstName = 'First name must be less than 10 characters';
+    }
+
+    if (!profileForm.lastName.trim()) {
+      errors.lastName = 'Last name is required';
+    } else if (!/^[A-Za-z]+$/.test(profileForm.lastName.trim())) {
+      errors.lastName = 'Letters only, no spaces';
+    } else if (profileForm.lastName.trim().length < 2) {
+      errors.lastName = 'Last name must be at least 2 characters';
+    } else if (profileForm.lastName.trim().length > 10) {
+      errors.lastName = 'Last name must be less than 10 characters';
+    }
+
+    if (profileForm.phone && profileForm.phone.trim() !== '') {
+      const phoneRegex = /^\d{10}$/;
+      if (!phoneRegex.test(profileForm.phone)) {
+        errors.phone = 'Phone number must be exactly 10 digits';
+      }
+    }
+
+    if (profileForm.address && profileForm.address.length > 80) {
+      errors.address = 'Address must be less than 80 characters';
+    }
+
+    setProfileErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validatePassword = () => {
+    const errors = {};
+    if (!passwordForm.currentPassword) errors.currentPassword = 'Current password is required';
+    if (!passwordForm.newPassword) errors.newPassword = 'New password is required';
+    else if (passwordForm.newPassword.length < 8) errors.newPassword = 'Password must be at least 8 characters';
+    else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(passwordForm.newPassword)) {
+      errors.newPassword = 'Password must contain uppercase, lowercase, and number';
+    }
+
+    if (!passwordForm.confirmPassword) errors.confirmPassword = 'Please confirm your password';
+    else if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+
+    setPasswordErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateImage = () => {
+    const errors = {};
+    if (!imageForm.imageUrl.trim()) errors.imageUrl = 'Image URL is required';
+    else {
+      try {
+        new URL(imageForm.imageUrl);
+      } catch {
+        errors.imageUrl = 'Please enter a valid URL';
+      }
+    }
+
+    setImageErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Profile update handlers
+  const handleProfileUpdate = async () => {
+    if (!validateProfile()) return;
+
+    try {
+      const { updateProfileApi } = await import('../utils/api');
+      const result = await updateProfileApi(profileForm);
+      setUser(result.user);
+      setIsEditingProfile(false);
+      setSnackbar({ open: true, message: 'Profile updated successfully!', severity: 'success' });
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message || 'Failed to update profile', severity: 'error' });
+    }
+  };
+
+  const handlePasswordUpdate = async () => {
+    if (!validatePassword()) return;
+
+    try {
+      const { updatePasswordApi } = await import('../utils/api');
+      await updatePasswordApi({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+      setIsEditingPassword(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setSnackbar({ open: true, message: 'Password updated successfully!', severity: 'success' });
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message || 'Failed to update password', severity: 'error' });
+    }
+  };
+
+  const handleImageUpdate = async () => {
+    try {
+      const { uploadProfileImageApi, updateProfileImageApi } = await import('../utils/api');
+      let result;
+      if (imageForm.file) {
+        result = await uploadProfileImageApi(imageForm.file);
+      } else if (imageForm.imageUrl) {
+        if (!validateImage()) return;
+        result = await updateProfileImageApi(imageForm.imageUrl);
+      } else {
+        setSnackbar({ open: true, message: 'Please select a file or enter an image URL', severity: 'error' });
+        return;
+      }
+      
+      setUser(result.user);
+      setIsImageDialogOpen(false);
+      setImageForm({ imageUrl: '', file: null });
+      setSnackbar({ open: true, message: 'Profile image updated successfully!', severity: 'success' });
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message || 'Failed to update image', severity: 'error' });
+    }
+  };
+
+  const cancelProfileEdit = () => {
+    setProfileForm({
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      phone: user.phone || '',
+      address: user.address || ''
+    });
+    setProfileErrors({});
+    setIsEditingProfile(false);
+  };
+
+  const cancelPasswordEdit = () => {
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    setPasswordErrors({});
+    setIsEditingPassword(false);
   };
 
   const handleSectionChange = (section) => {
@@ -863,7 +1078,8 @@ const StationManagerDashboard = () => {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {dashboardData?.todayBookings?.map((booking) => (
+                      {dashboardData?.todayBookings && dashboardData.todayBookings.length > 0 ? (
+                        dashboardData.todayBookings.map((booking) => (
                         <TableRow key={booking.id}>
                           <TableCell>
                             <Box>
@@ -929,7 +1145,16 @@ const StationManagerDashboard = () => {
                             </Box>
                           </TableCell>
                         </TableRow>
-                      )) || []}
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                            <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                              No bookings for today
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -954,7 +1179,8 @@ const StationManagerDashboard = () => {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {dashboardData?.recentBookings?.slice(0, 10).map((booking) => (
+                      {dashboardData?.recentBookings && dashboardData.recentBookings.length > 0 ? (
+                        dashboardData.recentBookings.slice(0, 10).map((booking) => (
                         <TableRow key={booking.id}>
                           <TableCell>
                             <Box>
@@ -1027,7 +1253,16 @@ const StationManagerDashboard = () => {
                             </Box>
                           </TableCell>
                         </TableRow>
-                      )) || []}
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                            <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                              No recent bookings available
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -1324,7 +1559,8 @@ const StationManagerDashboard = () => {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {dashboardData?.maintenancePredictions?.map((station) => (
+                      {dashboardData?.maintenancePredictions && dashboardData.maintenancePredictions.length > 0 ? (
+                        dashboardData.maintenancePredictions.map((station) => (
                         <TableRow key={station.id}>
                           <TableCell>
                             <Typography variant="body2" fontWeight="medium">
@@ -1382,11 +1618,12 @@ const StationManagerDashboard = () => {
                             </Box>
                           </TableCell>
                         </TableRow>
-                      )) || (
+                        ))
+                      ) : (
                         <TableRow>
-                          <TableCell colSpan={6} align="center">
-                            <Typography variant="body2" color="text.secondary">
-                              No stations with medium or high maintenance risk predictions
+                          <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                            <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                              No stations are under maintenance risk
                             </Typography>
                           </TableCell>
                         </TableRow>
@@ -1408,75 +1645,6 @@ const StationManagerDashboard = () => {
               Set station-level pricing and promotions
             </Typography>
             
-            {/* Station Pricing Overview */}
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Current Station Pricing</Typography>
-                {dashboardData?.assignedStations?.map((station) => (
-                  <Box key={station.id} sx={{ mb: 2, p: 2, border: '1px solid', borderColor: 'grey.200', borderRadius: 1 }}>
-                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-                      <Typography variant="subtitle1" fontWeight="bold">
-                        {station.name}
-                      </Typography>
-                      <Chip 
-                        label={station.status} 
-                        color={station.status === 'active' ? 'success' : 'warning'} 
-                        size="small" 
-                      />
-                    </Box>
-                    <Box display="flex" alignItems="center" gap={3}>
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Base Price
-                        </Typography>
-                        <Typography variant="h6" fontWeight="bold" color="primary">
-                          ₹{station.basePrice}/kWh
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Charger Types
-                        </Typography>
-                        <Typography variant="body2">
-                          {station.chargerTypes?.join(', ') || 'N/A'}
-                        </Typography>
-                      </Box>
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
-                          Available Chargers
-                        </Typography>
-                        <Typography variant="body2">
-                          {station.availableChargers}/{station.totalChargers}
-                        </Typography>
-                      </Box>
-                    </Box>
-                    <Box display="flex" gap={1} mt={2}>
-                      <Button 
-                        size="small" 
-                        startIcon={<EditIcon />}
-                        onClick={() => handleUpdatePricing(station.id)}
-                        variant="contained"
-                        color="primary"
-                      >
-                        Update Pricing
-                      </Button>
-                      <Button 
-                        size="small" 
-                        startIcon={<ViewIcon />}
-                        variant="outlined"
-                      >
-                        View Details
-                      </Button>
-                    </Box>
-                  </Box>
-                )) || (
-                  <Typography variant="body2" color="text.secondary">
-                    No assigned stations found.
-                  </Typography>
-                )}
-              </CardContent>
-            </Card>
-
             {/* Pricing Management */}
             <Card>
               <CardContent>
@@ -1671,65 +1839,48 @@ const StationManagerDashboard = () => {
         return (
           <Box>
             <Typography variant="h4" gutterBottom sx={{ color: 'text.primary', fontWeight: 'bold' }}>
-              Feedback Management
+              Reviews
             </Typography>
             <Typography variant="subtitle1" sx={{ color: 'text.secondary', mb: 3 }}>
-              View and respond to customer reviews
+              View customer reviews
             </Typography>
             
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  Recent Customer Reviews ({dashboardData?.recentFeedback?.length || 0})
+                  Recent Customer Reviews ({feedbackData?.length || 0})
                 </Typography>
-                {dashboardData?.recentFeedback?.map((feedback) => (
-                  <Box key={feedback.id} sx={{ mb: 3, p: 2, border: '1px solid', borderColor: 'grey.200', borderRadius: 1 }}>
-                    <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
-                      <Typography variant="subtitle1" fontWeight="bold">
-                        {feedback.user}
-                      </Typography>
-                      <Box display="flex" alignItems="center" gap={1}>
-                        {[...Array(5)].map((_, i) => (
-                          <CheckCircle 
-                            key={i} 
-                            sx={{ 
-                              fontSize: 16, 
-                              color: i < feedback.rating ? 'gold' : 'grey.300' 
-                            }} 
-                          />
-                        ))}
-                        <Typography variant="body2" color="text.secondary">
-                          {new Date(feedback.createdAt).toLocaleDateString()}
+                {feedbackData && feedbackData.length > 0 ? (
+                  feedbackData.map((feedback) => (
+                    <Box key={feedback.id} sx={{ mb: 3, p: 2, border: '1px solid', borderColor: 'grey.200', borderRadius: 1 }}>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          {feedback.user}
                         </Typography>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          {[...Array(5)].map((_, i) => (
+                            <Star 
+                              key={i} 
+                              sx={{ 
+                                fontSize: 20, 
+                                color: i < feedback.rating ? '#FFD700' : 'grey.300' 
+                              }} 
+                            />
+                          ))}
+                          <Typography variant="body2" color="text.secondary">
+                            {new Date(feedback.createdAt).toLocaleDateString()}
+                          </Typography>
+                        </Box>
                       </Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        Station: {feedback.stationName}
+                      </Typography>
+                      <Typography variant="body1">
+                        {feedback.comment}
+                      </Typography>
                     </Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Station: {feedback.stationName}
-                    </Typography>
-                    <Typography variant="body1" sx={{ mb: 2 }}>
-                      {feedback.comment}
-                    </Typography>
-                    <Box display="flex" gap={1}>
-                      <Button 
-                        size="small" 
-                        startIcon={<EditIcon />}
-                        onClick={() => console.log('Respond to feedback:', feedback.id)}
-                        variant="contained"
-                        color="primary"
-                      >
-                        Respond
-                      </Button>
-                      <Button 
-                        size="small" 
-                        startIcon={<ViewIcon />}
-                        onClick={() => console.log('View feedback details:', feedback.id)}
-                        variant="outlined"
-                      >
-                        View Details
-                      </Button>
-                    </Box>
-                  </Box>
-                )) || (
+                  ))
+                ) : (
                   <Typography variant="body2" color="text.secondary">
                     No recent feedback available.
                   </Typography>
@@ -1739,6 +1890,7 @@ const StationManagerDashboard = () => {
           </Box>
         );
       case 'profile':
+        const initials = `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`;
         return (
           <Box>
             <Typography variant="h4" gutterBottom sx={{ color: 'text.primary', fontWeight: 'bold' }}>
@@ -1747,14 +1899,385 @@ const StationManagerDashboard = () => {
             <Typography variant="subtitle1" sx={{ color: 'text.secondary', mb: 3 }}>
               Manage account and preferences
             </Typography>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Account Information</Typography>
-                <Typography variant="body1" color="text.secondary">
-                  Profile management features will be implemented here.
-                </Typography>
-              </CardContent>
-            </Card>
+
+            <Grid container spacing={4}>
+              {/* Profile Image Section */}
+              <Grid item xs={12} md={4}>
+                <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)', height: 'fit-content' }}>
+                  <CardContent sx={{ textAlign: 'center', p: 4 }}>
+                    <Box sx={{ position: 'relative', display: 'inline-block', mb: 3 }}>
+                      <Avatar 
+                        src={user?.profileImage || undefined}
+                        sx={{ 
+                          width: 150, 
+                          height: 150, 
+                          bgcolor: user?.profileImage ? 'transparent' : 'primary.main', 
+                          fontSize: '4rem',
+                          mx: 'auto'
+                        }}
+                      >
+                        {!user?.profileImage && initials}
+                      </Avatar>
+                      <IconButton
+                        sx={{
+                          position: 'absolute',
+                          bottom: 0,
+                          right: 0,
+                          bgcolor: 'primary.main',
+                          color: 'white',
+                          '&:hover': { bgcolor: 'primary.dark' }
+                        }}
+                        onClick={() => setIsImageDialogOpen(true)}
+                      >
+                        <PhotoCameraIcon />
+                      </IconButton>
+                    </Box>
+                    <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
+                      {user?.firstName} {user?.lastName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {user?.email}
+                    </Typography>
+                    <Chip 
+                      label="Station Manager" 
+                      color="primary" 
+                      variant="outlined"
+                    />
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              {/* Profile Details Section */}
+              <Grid item xs={12} md={8}>
+                <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)', mb: 4 }}>
+                  <CardContent sx={{ p: 4 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        Personal Information
+                      </Typography>
+                      {!isEditingProfile ? (
+                        <Button
+                          variant="outlined"
+                          startIcon={<EditIcon />}
+                          onClick={() => setIsEditingProfile(true)}
+                        >
+                          Edit
+                        </Button>
+                      ) : (
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button
+                            variant="contained"
+                            startIcon={<SaveIcon />}
+                            onClick={handleProfileUpdate}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            startIcon={<CancelIcon />}
+                            onClick={cancelProfileEdit}
+                          >
+                            Cancel
+                          </Button>
+                        </Box>
+                      )}
+                    </Box>
+
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="First Name"
+                          value={profileForm.firstName}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (/^[A-Za-z]*$/.test(value) || value === '') {
+                              setProfileForm({ ...profileForm, firstName: value });
+                              if (value.trim() === '') {
+                                setProfileErrors(prev => ({ ...prev, firstName: 'First name is required' }));
+                              } else if (!/^[A-Za-z]+$/.test(value)) {
+                                setProfileErrors(prev => ({ ...prev, firstName: 'Letters only, no spaces' }));
+                              } else if (value.trim().length < 2) {
+                                setProfileErrors(prev => ({ ...prev, firstName: 'First name must be at least 2 characters' }));
+                              } else if (value.trim().length > 10) {
+                                setProfileErrors(prev => ({ ...prev, firstName: 'First name must be less than 10 characters' }));
+                              } else {
+                                setProfileErrors(prev => {
+                                  const newErrors = { ...prev };
+                                  delete newErrors.firstName;
+                                  return newErrors;
+                                });
+                              }
+                            }
+                          }}
+                          disabled={!isEditingProfile}
+                          error={!!profileErrors.firstName}
+                          helperText={profileErrors.firstName}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Last Name"
+                          value={profileForm.lastName}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (/^[A-Za-z]*$/.test(value) || value === '') {
+                              setProfileForm({ ...profileForm, lastName: value });
+                              if (value.trim() === '') {
+                                setProfileErrors(prev => ({ ...prev, lastName: 'Last name is required' }));
+                              } else if (!/^[A-Za-z]+$/.test(value)) {
+                                setProfileErrors(prev => ({ ...prev, lastName: 'Letters only, no spaces' }));
+                              } else if (value.trim().length < 2) {
+                                setProfileErrors(prev => ({ ...prev, lastName: 'Last name must be at least 2 characters' }));
+                              } else if (value.trim().length > 10) {
+                                setProfileErrors(prev => ({ ...prev, lastName: 'Last name must be less than 10 characters' }));
+                              } else {
+                                setProfileErrors(prev => {
+                                  const newErrors = { ...prev };
+                                  delete newErrors.lastName;
+                                  return newErrors;
+                                });
+                              }
+                            }
+                          }}
+                          disabled={!isEditingProfile}
+                          error={!!profileErrors.lastName}
+                          helperText={profileErrors.lastName}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Email"
+                          value={user?.email || ''}
+                          disabled
+                          helperText="Email cannot be changed"
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          label="Phone"
+                          value={profileForm.phone}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (/^\d*$/.test(value) || value === '') {
+                              setProfileForm({ ...profileForm, phone: value });
+                              if (value.trim() !== '' && !/^\d*$/.test(value)) {
+                                setProfileErrors(prev => ({ ...prev, phone: 'Phone number can only contain digits' }));
+                              } else if (value.trim() !== '' && value.length !== 10) {
+                                setProfileErrors(prev => ({ ...prev, phone: 'Phone number must be exactly 10 digits' }));
+                              } else {
+                                setProfileErrors(prev => {
+                                  const newErrors = { ...prev };
+                                  delete newErrors.phone;
+                                  return newErrors;
+                                });
+                              }
+                            }
+                          }}
+                          disabled={!isEditingProfile}
+                          error={!!profileErrors.phone}
+                          helperText={profileErrors.phone}
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <TextField
+                          fullWidth
+                          label="Address"
+                          value={profileForm.address}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (value.length <= 80) {
+                              setProfileForm({ ...profileForm, address: value });
+                              if (value.length > 80) {
+                                setProfileErrors(prev => ({ ...prev, address: 'Address must be less than 80 characters' }));
+                              } else {
+                                setProfileErrors(prev => {
+                                  const newErrors = { ...prev };
+                                  delete newErrors.address;
+                                  return newErrors;
+                                });
+                              }
+                            }
+                          }}
+                          disabled={!isEditingProfile}
+                          multiline
+                          rows={3}
+                          error={!!profileErrors.address}
+                          helperText={profileErrors.address || `${profileForm.address.length}/80 characters`}
+                        />
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+
+                {/* Password Section */}
+                <Card sx={{ boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+                  <CardContent sx={{ p: 4 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                        Password
+                      </Typography>
+                      {!isEditingPassword ? (
+                        <Button
+                          variant="outlined"
+                          startIcon={<EditIcon />}
+                          onClick={() => setIsEditingPassword(true)}
+                          disabled={!user?.credentials?.passwordHash}
+                        >
+                          Change Password
+                        </Button>
+                      ) : (
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button
+                            variant="contained"
+                            startIcon={<SaveIcon />}
+                            onClick={handlePasswordUpdate}
+                          >
+                            Update
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            startIcon={<CancelIcon />}
+                            onClick={cancelPasswordEdit}
+                          >
+                            Cancel
+                          </Button>
+                        </Box>
+                      )}
+                    </Box>
+
+                    {!user?.credentials?.passwordHash && (
+                      <Alert severity="info" sx={{ mb: 3 }}>
+                        Password change is not available for Google accounts.
+                      </Alert>
+                    )}
+
+                    {isEditingPassword && (
+                      <Grid container spacing={3}>
+                        <Grid item xs={12}>
+                          <TextField
+                            fullWidth
+                            label="Current Password"
+                            type={showCurrentPassword ? 'text' : 'password'}
+                            value={passwordForm.currentPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                            error={!!passwordErrors.currentPassword}
+                            helperText={passwordErrors.currentPassword}
+                            InputProps={{
+                              endAdornment: (
+                                <IconButton
+                                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                  edge="end"
+                                >
+                                  {showCurrentPassword ? <VisibilityOffIcon /> : <ViewIcon />}
+                                </IconButton>
+                              ),
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="New Password"
+                            type={showNewPassword ? 'text' : 'password'}
+                            value={passwordForm.newPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                            error={!!passwordErrors.newPassword}
+                            helperText={passwordErrors.newPassword}
+                            InputProps={{
+                              endAdornment: (
+                                <IconButton
+                                  onClick={() => setShowNewPassword(!showNewPassword)}
+                                  edge="end"
+                                >
+                                  {showNewPassword ? <VisibilityOffIcon /> : <ViewIcon />}
+                                </IconButton>
+                              ),
+                            }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            fullWidth
+                            label="Confirm New Password"
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            value={passwordForm.confirmPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                            error={!!passwordErrors.confirmPassword}
+                            helperText={passwordErrors.confirmPassword}
+                            InputProps={{
+                              endAdornment: (
+                                <IconButton
+                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                  edge="end"
+                                >
+                                  {showConfirmPassword ? <VisibilityOffIcon /> : <ViewIcon />}
+                                </IconButton>
+                              ),
+                            }}
+                          />
+                        </Grid>
+                      </Grid>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+
+            {/* Profile Image Dialog */}
+            <Dialog open={isImageDialogOpen} onClose={() => setIsImageDialogOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Update Profile Image</DialogTitle>
+              <DialogContent>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ mb: 2 }}>Upload from Device</Typography>
+                  <input
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    id="profile-image-file"
+                    type="file"
+                    onChange={(e) => setImageForm({ ...imageForm, file: e.target.files[0], imageUrl: '' })}
+                  />
+                  <label htmlFor="profile-image-file">
+                    <Button variant="outlined" component="span" startIcon={<PhotoCameraIcon />}>
+                      Choose Image
+                    </Button>
+                  </label>
+                  {imageForm.file && (
+                    <Typography variant="body2" sx={{ mt: 1, color: 'success.main' }}>
+                      Selected: {imageForm.file.name}
+                    </Typography>
+                  )}
+                </Box>
+                
+                <Divider sx={{ my: 2 }}>
+                  <Typography variant="body2" color="text.secondary">OR</Typography>
+                </Divider>
+                
+                <Box>
+                  <Typography variant="h6" sx={{ mb: 2 }}>Enter Image URL</Typography>
+                  <TextField
+                    fullWidth
+                    label="Image URL"
+                    value={imageForm.imageUrl}
+                    onChange={(e) => setImageForm({ ...imageForm, imageUrl: e.target.value, file: null })}
+                    error={!!imageErrors.imageUrl}
+                    helperText={imageErrors.imageUrl || "Enter a valid image URL"}
+                  />
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => {
+                  setIsImageDialogOpen(false);
+                  setImageForm({ imageUrl: '', file: null });
+                }}>
+                  Cancel
+                </Button>
+                <Button onClick={handleImageUpdate} variant="contained">Update</Button>
+              </DialogActions>
+            </Dialog>
           </Box>
         );
       default:
@@ -1850,8 +2373,15 @@ const StationManagerDashboard = () => {
                 Welcome, {user?.firstName || 'Manager'}
               </Typography>
               <IconButton onClick={handleMenuClick} sx={{ color: 'text.primary' }}>
-                <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
-                  {user?.firstName?.charAt(0) || 'M'}
+                <Avatar 
+                  src={user?.profileImage || undefined}
+                  sx={{ 
+                    width: 32, 
+                    height: 32, 
+                    bgcolor: user?.profileImage ? 'transparent' : 'primary.main' 
+                  }}
+                >
+                  {!user?.profileImage && (user?.firstName?.charAt(0) || 'M')}
                 </Avatar>
               </IconButton>
               <Menu
@@ -1859,7 +2389,7 @@ const StationManagerDashboard = () => {
                 open={Boolean(anchorEl)}
                 onClose={handleMenuClose}
               >
-                <MenuItem onClick={handleMenuClose}>
+                <MenuItem onClick={() => { handleMenuClose(); setActiveSection('profile'); }}>
                   <ListItemIcon>
                     <ProfileIcon fontSize="small" />
                   </ListItemIcon>

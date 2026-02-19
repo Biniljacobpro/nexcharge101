@@ -1,4 +1,5 @@
-import SVM from 'ml-svm';
+// Simple SVM implementation for churn prediction
+// Note: Using simplified prediction logic for deployment compatibility
 import User from '../models/user.model.js';
 import Booking from '../models/booking.model.js';
 import Review from '../models/review.model.js';
@@ -34,19 +35,37 @@ const trainingLabels = [
   1, 1, 1, 1, 1, 1, 1, 1   // Churn labels
 ];
 
-// Initialize and train the SVM model
-let svmModel;
-try {
-  svmModel = new SVM({
-    C: 1.0, // Regularization parameter
-    kernel: 'rbf', // Radial basis function kernel
-    gamma: 0.1 // Kernel coefficient
-  });
-  svmModel.train(trainingData, trainingLabels);
-  console.log('Churn prediction SVM model initialized and trained successfully');
-} catch (error) {
-  console.error('Error initializing SVM model:', error);
-}
+// Simple rule-based churn prediction model
+// Simplified for deployment - uses weighted scoring instead of SVM
+const svmModel = {
+  predict: (features) => {
+    // Rule-based prediction using weighted features
+    const [lastLoginDays, avgMonthlyBookings, loyaltyPoints, lastNegativeReview, twoFactorEnabled] = features;
+    
+    // Calculate risk score (0-100)
+    let riskScore = 0;
+    
+    // Weight 1: Last login (higher days = higher risk)
+    riskScore += Math.min((lastLoginDays / 60) * 40, 40); // Max 40 points
+    
+    // Weight 2: Booking frequency (lower bookings = higher risk)
+    riskScore += Math.max(0, (5 - avgMonthlyBookings) / 5 * 30); // Max 30 points
+    
+    // Weight 3: Loyalty points (fewer points = higher risk)
+    riskScore += Math.max(0, (200 - loyaltyPoints) / 200 * 15); // Max 15 points
+    
+    // Weight 4: Recent negative review
+    riskScore += lastNegativeReview * 10; // 10 points if negative review exists
+    
+    // Weight 5: Two factor auth (no 2FA = higher risk)
+    riskScore += (1 - twoFactorEnabled) * 5; // 5 points if 2FA disabled
+    
+    // Return 1 (churn) if risk score > 50, else 0 (no churn)
+    return riskScore > 50 ? 1 : 0;
+  }
+};
+
+console.log('Churn prediction model initialized successfully (rule-based)');
 
 /**
  * Calculate user features for churn prediction

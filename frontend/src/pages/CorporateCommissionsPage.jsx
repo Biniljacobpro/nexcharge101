@@ -22,10 +22,11 @@ import {
   CircularProgress,
   Alert
 } from '@mui/material';
-import { AttachMoney as MoneyIcon } from '@mui/icons-material';
+import { CurrencyRupee as MoneyIcon } from '@mui/icons-material';
 import * as api from '../utils/api';
+import corporateService from '../services/corporateService';
 
-const CorporateCommissionsPage = () => {
+const CorporateCommissionsPage = ({ corporateId: corporateIdProp }) => {
   const [commissions, setCommissions] = useState([]);
   const [stats, setStats] = useState({
     totalEarnings: 0,
@@ -35,6 +36,7 @@ const CorporateCommissionsPage = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [corporateId, setCorporateId] = useState(corporateIdProp);
   
   // Filters
   const [statusFilter, setStatusFilter] = useState('all');
@@ -46,7 +48,26 @@ const CorporateCommissionsPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const limit = 10;
 
-  const corporateId = localStorage.getItem('corporateId');
+  // Fetch corporateId from backend if not provided as prop
+  useEffect(() => {
+    const fetchCorporateId = async () => {
+      if (!corporateIdProp) {
+        try {
+          const response = await corporateService.getDashboardData();
+          if (response?.success && response?.data?.corporateId) {
+            setCorporateId(response.data.corporateId);
+          } else {
+            setError('Corporate ID not found. Please wait for dashboard to load or log in again if the problem persists.');
+          }
+        } catch (err) {
+          console.error('Error fetching corporate ID:', err);
+          setError('Corporate information not available. Please wait for dashboard to load or log in again if the problem persists.');
+        }
+      }
+    };
+    
+    fetchCorporateId();
+  }, [corporateIdProp]);
 
   useEffect(() => {
     if (corporateId) {
@@ -69,8 +90,8 @@ const CorporateCommissionsPage = () => {
       const response = await api.getCorporateCommissions(corporateId, params);
       
       if (response.success) {
-        setCommissions(response.data);
-        setTotalPages(response.pagination?.pages || 1);
+        setCommissions(response.data.commissions || []);
+        setTotalPages(response.data.pagination?.pages || 1);
       }
     } catch (err) {
       setError(err.message || 'Failed to load commissions');
@@ -155,6 +176,18 @@ const CorporateCommissionsPage = () => {
   ];
 
   const years = Array.from({ length: 11 }, (_, i) => 2020 + i);
+
+  // Early return if no corporateId
+  if (!corporateId) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Alert severity="error" sx={{ maxWidth: 600, mx: 'auto' }}>
+          <Typography variant="h6">Corporate ID Not Found</Typography>
+          <Typography>Corporate information not available. Please wait for dashboard to load or log in again if the problem persists.</Typography>
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -309,8 +342,8 @@ const CorporateCommissionsPage = () => {
                       <TableRow key={commission._id} hover>
                         <TableCell>{formatDate(commission.createdAt)}</TableCell>
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                            {commission.bookingId?.bookingNumber || 'N/A'}
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                            {commission.bookingId?._id ? `...${commission.bookingId._id.toString().slice(-8)}` : 'N/A'}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
@@ -369,3 +402,5 @@ const CorporateCommissionsPage = () => {
 };
 
 export default CorporateCommissionsPage;
+
+

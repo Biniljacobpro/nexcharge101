@@ -39,7 +39,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-const InteractiveMap = ({ compact = false, height }) => {
+const InteractiveMap = ({ compact = false, height, hideFilter = false, maxStations = null }) => {
   const mapRef = useRef(null);
   const navigate = useNavigate();
   const [currentLocation, setCurrentLocation] = useState(null);
@@ -450,21 +450,23 @@ const InteractiveMap = ({ compact = false, height }) => {
 
           <Box sx={{ mb: 4 }}>
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={hideFilter ? 8 : 6}>
                 <TextField fullWidth placeholder="Search stations by name..." value={searchTerm} onChange={handleSearch} InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon color="action" /></InputAdornment>) }} sx={{ backgroundColor: 'white' }} />
               </Grid>
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth>
-                  <InputLabel>Station Type</InputLabel>
-                  <Select value={filterType} label="Station Type" onChange={handleFilterChange} sx={{ backgroundColor: 'white' }}>
-                    <MenuItem value="all">All Types</MenuItem>
-                    <MenuItem value="DC Fast">DC Fast</MenuItem>
-                    <MenuItem value="Level 2">Level 2</MenuItem>
-                    <MenuItem value="Level 1">Level 1</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={3}>
+              {!hideFilter && (
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Station Type</InputLabel>
+                    <Select value={filterType} label="Station Type" onChange={handleFilterChange} sx={{ backgroundColor: 'white' }}>
+                      <MenuItem value="all">All Types</MenuItem>
+                      <MenuItem value="DC Fast">DC Fast</MenuItem>
+                      <MenuItem value="Level 2">Level 2</MenuItem>
+                      <MenuItem value="Level 1">Level 1</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+              <Grid item xs={12} md={hideFilter ? 4 : 3}>
                 <Button fullWidth variant="outlined" startIcon={<MyLocationIcon />} onClick={centerOnCurrentLocation} sx={{ height: 56, borderColor: '#00D4AA', color: '#00D4AA', '&:hover': { borderColor: '#009B7A', backgroundColor: 'rgba(0, 212, 170, 0.05)' } }}>My Location</Button>
               </Grid>
             </Grid>
@@ -483,13 +485,13 @@ const InteractiveMap = ({ compact = false, height }) => {
           <Box sx={{ mt: 4 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h5" sx={{ fontWeight: 600, color: '#1f2937' }}>
-                Nearby Charging Stations ({filteredStations.length})
+                Nearby Charging Stations ({maxStations ? Math.min(maxStations, filteredStations.length) : filteredStations.length})
               </Typography>
               <Chip label={`${filteredStations.filter(s => s.available > 0).length} Available`} color="success" variant="outlined" />
             </Box>
             
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
-              {filteredStations.map((station, index) => (
+              {(maxStations ? filteredStations.slice(0, maxStations) : filteredStations).map((station, index) => (
                 <motion.div key={station.id || `station-${index}`} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, delay: index * 0.1 }}>
                   <Paper elevation={2} sx={{ p: 3, pb: 2, borderRadius: 2, width: 320, height: 260, display: 'flex', flexDirection: 'column', border: '1px solid #e5e7eb', position: 'relative', cursor: 'pointer', '&:hover': { transform: 'translateY(-2px)', transition: 'transform 0.2s ease', boxShadow: '0 8px 25px rgba(0,0,0,0.1)' } }} onClick={() => navigate(`/stations/${station.id}`)}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -586,6 +588,25 @@ const InteractiveMap = ({ compact = false, height }) => {
                 </motion.div>
               ))}
             </Box>
+            
+            {maxStations && filteredStations.length > maxStations && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                <Button 
+                  onClick={() => navigate('/stations')}
+                  sx={{ 
+                    color: '#667eea', 
+                    fontWeight: 600, 
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    '&:hover': {
+                      backgroundColor: 'rgba(102, 126, 234, 0.08)'
+                    }
+                  }}
+                >
+                  more
+                </Button>
+              </Box>
+            )}
           </Box>
         </motion.div>
       </Container>

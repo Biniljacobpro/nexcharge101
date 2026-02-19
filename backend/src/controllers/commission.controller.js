@@ -29,7 +29,7 @@ export const generateCommissionFromBooking = async (bookingId) => {
     if (station.franchiseId) {
       const franchise = await Franchise.findById(station.franchiseId);
       if (franchise && franchise.status === 'active') {
-        const baseAmount = booking.totalCost || 0;
+        const baseAmount = booking.totalCost || booking.payment?.paidAmount || booking.pricing?.actualCost || 0;
         const rate = franchise.financialInfo?.commissionRate || 10;
         const calculated = Commission.calculateCommission(baseAmount, rate, 18); // 18% GST
         
@@ -57,7 +57,7 @@ export const generateCommissionFromBooking = async (bookingId) => {
     if (station.corporateId) {
       const corporate = await Corporate.findById(station.corporateId);
       if (corporate && corporate.status === 'approved') {
-        const baseAmount = booking.totalCost || 0;
+        const baseAmount = booking.totalCost || booking.payment?.paidAmount || booking.pricing?.actualCost || 0;
         const rate = corporate.commissionRate || 15;
         const calculated = Commission.calculateCommission(baseAmount, rate, 18);
         
@@ -105,7 +105,8 @@ export const getFranchiseCommissions = async (req, res) => {
       return res.status(404).json({ message: 'Franchise not found' });
     }
     
-    if (req.user.role !== 'admin' && franchise.ownerId.toString() !== req.user._id.toString()) {
+    const userId = req.user.sub || req.user._id;
+    if (req.user.role !== 'admin' && franchise.ownerId.toString() !== userId.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
@@ -119,7 +120,8 @@ export const getFranchiseCommissions = async (req, res) => {
     const [commissions, total, summary] = await Promise.all([
       Commission.find(query)
         .populate('stationId', 'name location')
-        .populate('bookingId', 'startTime endTime')
+        .populate('bookingId', '_id startTime endTime')
+        .populate('ownerId', 'personalInfo.firstName personalInfo.lastName personalInfo.email')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit)),
@@ -162,7 +164,8 @@ export const getCorporateCommissions = async (req, res) => {
       return res.status(404).json({ message: 'Corporate not found' });
     }
     
-    if (req.user.role !== 'admin' && corporate.adminId.toString() !== req.user._id.toString()) {
+    const userId = req.user.sub || req.user._id;
+    if (req.user.role !== 'admin' && corporate.adminId.toString() !== userId.toString()) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
@@ -176,7 +179,8 @@ export const getCorporateCommissions = async (req, res) => {
     const [commissions, total, summary] = await Promise.all([
       Commission.find(query)
         .populate('stationId', 'name location')
-        .populate('bookingId', 'startTime endTime')
+        .populate('bookingId', '_id startTime endTime')
+        .populate('ownerId', 'personalInfo.firstName personalInfo.lastName personalInfo.email')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit)),
@@ -214,12 +218,13 @@ export const getMonthlyCommissionSummary = async (req, res) => {
     const { year = new Date().getFullYear() } = req.query;
     
     // Verify access
+    const userId = req.user.sub || req.user._id;
     if (entityType === 'franchise') {
       const franchise = await Franchise.findById(entityId);
       if (!franchise) {
         return res.status(404).json({ message: 'Franchise not found' });
       }
-      if (req.user.role !== 'admin' && franchise.ownerId.toString() !== req.user._id.toString()) {
+      if (req.user.role !== 'admin' && franchise.ownerId.toString() !== userId.toString()) {
         return res.status(403).json({ message: 'Access denied' });
       }
     } else if (entityType === 'corporate') {
@@ -227,7 +232,7 @@ export const getMonthlyCommissionSummary = async (req, res) => {
       if (!corporate) {
         return res.status(404).json({ message: 'Corporate not found' });
       }
-      if (req.user.role !== 'admin' && corporate.adminId.toString() !== req.user._id.toString()) {
+      if (req.user.role !== 'admin' && corporate.adminId.toString() !== userId.toString()) {
         return res.status(403).json({ message: 'Access denied' });
       }
     }
@@ -259,6 +264,7 @@ export const approveCommission = async (req, res) => {
     }
     
     commission.status = 'approved';
+    commission.approvedBy = req.user._id;
     await commission.save();
     
     res.json({
@@ -359,14 +365,15 @@ export const getCommissionStats = async (req, res) => {
     const { entityType, entityId } = req.params;
     
     // Verify access
+    const userId = req.user.sub || req.user._id;
     if (entityType === 'franchise') {
       const franchise = await Franchise.findById(entityId);
-      if (!franchise || (req.user.role !== 'admin' && franchise.ownerId.toString() !== req.user._id.toString())) {
+      if (!franchise || (req.user.role !== 'admin' && franchise.ownerId.toString() !== userId.toString())) {
         return res.status(403).json({ message: 'Access denied' });
       }
     } else if (entityType === 'corporate') {
       const corporate = await Corporate.findById(entityId);
-      if (!corporate || (req.user.role !== 'admin' && corporate.adminId.toString() !== req.user._id.toString())) {
+      if (!corporate || (req.user.role !== 'admin' && corporate.adminId.toString() !== userId.toString())) {
         return res.status(403).json({ message: 'Access denied' });
       }
     }
@@ -394,11 +401,16 @@ export const getCommissionStats = async (req, res) => {
         .populate('stationId', 'name')
     ]);
     
+    const totalData = totalStats[0] || { totalNet: 0, pendingCommission: 0, paidCommission: 0 };
+    const monthData = monthlyStats[0] || { totalNet: 0 };
+    
     res.json({
       success: true,
       data: {
-        total: totalStats[0] || {},
-        thisMonth: monthlyStats[0] || {},
+        totalEarnings: totalData.totalNet || 0,
+        thisMonth: monthData.totalNet || 0,
+        pendingAmount: totalData.pendingCommission || 0,
+        paidAmount: totalData.paidCommission || 0,
         yearlyBreakdown: yearlyStats,
         recentCommissions
       }
@@ -419,3 +431,4 @@ export default {
   getAllCommissions,
   getCommissionStats
 };
+

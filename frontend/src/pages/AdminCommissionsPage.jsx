@@ -28,7 +28,7 @@ import {
   DialogActions,
   TextField
 } from '@mui/material';
-import { AttachMoney as MoneyIcon, CheckCircle, Payment } from '@mui/icons-material';
+import { CurrencyRupee as MoneyIcon, CheckCircle, Payment } from '@mui/icons-material';
 import * as api from '../utils/api';
 
 const AdminCommissionsPage = () => {
@@ -521,3 +521,4 @@ const AdminCommissionsPage = () => {
 };
 
 export default AdminCommissionsPage;
+

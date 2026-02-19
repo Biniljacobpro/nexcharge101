@@ -100,7 +100,7 @@ import {
   Error as ErrorIcon,
   Storage as StorageIcon,
   Logout as LogoutIcon,
-  AttachMoney as MoneyIcon
+  CurrencyRupee as MoneyIcon
 } from '@mui/icons-material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import nexchargeLogo from '../assets/nexcharge-high-resolution-logo-transparent.png';

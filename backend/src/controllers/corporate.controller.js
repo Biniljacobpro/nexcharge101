@@ -166,6 +166,7 @@ export const getDashboardData = async (req, res) => {
     const averageRating = 4.6; // This would be calculated from actual ratings
 
     const dashboardData = {
+      corporateId: corporateId, // Include corporateId for commission module
       totalFranchises: franchiseOwners.length,
       totalStations: stations.length,
       totalRevenue: totalRevenue,

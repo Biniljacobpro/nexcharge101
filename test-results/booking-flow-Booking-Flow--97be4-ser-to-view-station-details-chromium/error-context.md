@@ -1,0 +1,54 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e6]:
+      - img "NexCharge" [ref=e9] [cursor=pointer]
+      - generic [ref=e10]:
+        - button "Home" [ref=e11] [cursor=pointer]:
+          - img [ref=e13]
+          - text: Home
+        - button "Stations" [ref=e15] [cursor=pointer]:
+          - img [ref=e17]
+          - text: Stations
+        - button "Bookings" [ref=e19] [cursor=pointer]:
+          - img [ref=e21]
+          - text: Bookings
+        - button "Support" [ref=e23] [cursor=pointer]:
+          - img [ref=e25]
+          - text: Support
+      - generic [ref=e28]:
+        - button "Notifications" [ref=e29] [cursor=pointer]:
+          - generic [ref=e30]:
+            - img [ref=e31]
+            - generic: "0"
+        - generic [ref=e33]:
+          - generic [ref=e34] [cursor=pointer]: U
+          - button [ref=e35] [cursor=pointer]:
+            - img [ref=e36]
+  - main [ref=e38]:
+    - generic [ref=e39]:
+      - generic [ref=e40]:
+        - heading "Stations" [level=4] [ref=e41]
+        - paragraph [ref=e42]: Browse and find charging stations near you
+      - generic [ref=e43]:
+        - generic [ref=e46]:
+          - img [ref=e47]
+          - textbox "Search stations by name..." [ref=e49]
+          - group
+        - button "My Location" [ref=e51] [cursor=pointer]:
+          - img [ref=e53]
+          - text: My Location
+      - generic [ref=e55]:
+        - paragraph [ref=e59]: No stations found.
+        - generic [ref=e64]: Loading...
+  - contentinfo [ref=e65]:
+    - generic [ref=e68]:
+      - paragraph [ref=e69]: © NexCharge 2025. All rights reserved.
+      - generic [ref=e70]:
+        - link "Privacy Policy" [ref=e71] [cursor=pointer]:
+          - /url: "#"
+        - link "Terms of Service" [ref=e72] [cursor=pointer]:
+          - /url: "#"
+```

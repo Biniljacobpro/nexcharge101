@@ -1,0 +1,144 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - img "NexCharge" [ref=e7]
+      - heading "Corporate Admin" [level=6] [ref=e8]
+    - list [ref=e9]:
+      - listitem [ref=e10] [cursor=pointer]:
+        - img [ref=e12]
+        - generic [ref=e14]:
+          - generic [ref=e15]: Main Dashboard
+          - paragraph [ref=e16]: Overview and KPIs
+      - listitem [ref=e17] [cursor=pointer]:
+        - img [ref=e19]
+        - generic [ref=e21]:
+          - generic [ref=e22]: Franchise Management
+          - paragraph [ref=e23]: Manage franchise partners
+      - listitem [ref=e24] [cursor=pointer]:
+        - img [ref=e26]
+        - generic [ref=e28]:
+          - generic [ref=e29]: Station Management
+          - paragraph [ref=e30]: Monitor charging stations
+      - listitem [ref=e31] [cursor=pointer]:
+        - img [ref=e33]
+        - generic [ref=e35]:
+          - generic [ref=e36]: User Management
+          - paragraph [ref=e37]: Manage franchise owners and station managers
+      - listitem [ref=e38] [cursor=pointer]:
+        - img [ref=e40]
+        - generic [ref=e43]:
+          - generic [ref=e44]: User Retention
+          - paragraph [ref=e45]: Monitor user churn risk
+      - listitem [ref=e46] [cursor=pointer]:
+        - img [ref=e48]
+        - generic [ref=e50]:
+          - generic [ref=e51]: Analytics
+          - paragraph [ref=e52]: Performance insights
+      - listitem [ref=e53] [cursor=pointer]:
+        - img [ref=e55]
+        - generic [ref=e58]:
+          - generic [ref=e59]: Booking Management
+          - paragraph [ref=e60]: Track charging sessions
+      - listitem [ref=e61] [cursor=pointer]:
+        - img [ref=e63]
+        - generic [ref=e65]:
+          - generic [ref=e66]: Commissions
+          - paragraph [ref=e67]: View and track commission earnings
+      - listitem [ref=e68] [cursor=pointer]:
+        - img [ref=e70]
+        - generic [ref=e72]:
+          - generic [ref=e73]: Profile Settings
+          - paragraph [ref=e74]: Account management
+      - listitem [ref=e75] [cursor=pointer]:
+        - img [ref=e77]
+        - generic [ref=e79]:
+          - generic [ref=e80]: Corporate Settings
+          - paragraph [ref=e81]: System configuration
+  - generic [ref=e82]:
+    - banner [ref=e83]:
+      - generic [ref=e84]:
+        - heading "Main Dashboard" [level=6] [ref=e86]
+        - paragraph [ref=e87]: Overview and KPIs
+        - generic [ref=e89]:
+          - img [ref=e91]
+          - textbox "Search..." [ref=e93]
+          - group
+        - button "Notifications" [ref=e94] [cursor=pointer]:
+          - generic [ref=e95]:
+            - img [ref=e96]
+            - generic: "0"
+        - button [ref=e98] [cursor=pointer]:
+          - img [ref=e99]
+        - button [ref=e101] [cursor=pointer]:
+          - img [ref=e102]
+        - button "C" [ref=e104] [cursor=pointer]:
+          - generic [ref=e105]: C
+    - generic [ref=e107]:
+      - generic [ref=e108]:
+        - generic [ref=e112]:
+          - generic [ref=e113]:
+            - heading "0" [level=4] [ref=e114]
+            - paragraph [ref=e115]: Total Franchises
+            - paragraph [ref=e116]: Active partners
+            - generic [ref=e117]:
+              - img [ref=e118]
+              - generic [ref=e120]: 12.5% since last month
+          - img [ref=e122]
+        - generic [ref=e127]:
+          - generic [ref=e128]:
+            - heading "0" [level=4] [ref=e129]
+            - paragraph [ref=e130]: Active Stations
+            - paragraph [ref=e131]: Charging points
+            - generic [ref=e132]:
+              - img [ref=e133]
+              - generic [ref=e135]: 8.3% since last month
+          - img [ref=e137]
+        - generic [ref=e142]:
+          - generic [ref=e143]:
+            - heading "₹0.0L" [level=4] [ref=e144]
+            - paragraph [ref=e145]: Total Revenue
+            - paragraph [ref=e146]: This month
+            - text: "0"
+          - img [ref=e148]
+        - generic [ref=e153]:
+          - generic [ref=e154]:
+            - heading "0" [level=4] [ref=e155]
+            - paragraph [ref=e156]: Charging Sessions
+            - paragraph [ref=e157]: Active bookings
+            - generic [ref=e158]:
+              - img [ref=e159]
+              - generic [ref=e161]: 15.2% since last month
+          - img [ref=e163]
+        - generic [ref=e168]:
+          - generic [ref=e169]:
+            - heading "99.9%" [level=4] [ref=e170]
+            - paragraph [ref=e171]: System Uptime
+            - paragraph [ref=e172]: Healthy
+            - text: "0"
+          - img [ref=e174]
+        - generic [ref=e179]:
+          - generic [ref=e180]:
+            - heading "0%" [level=4] [ref=e181]
+            - paragraph [ref=e182]: Network Efficiency
+            - paragraph [ref=e183]: Performance
+            - generic [ref=e184]:
+              - img [ref=e185]
+              - generic [ref=e187]: 5.2% since last month
+          - img [ref=e189]
+      - generic [ref=e192]:
+        - generic [ref=e195]:
+          - heading "Revenue & Bookings Trend" [level=6] [ref=e196]
+          - img [ref=e199]
+        - generic [ref=e209]:
+          - heading "Station Type Distribution" [level=6] [ref=e210]
+          - img [ref=e213]
+      - paragraph [ref=e219]: No stations found for this corporate.
+  - alert [ref=e220]:
+    - img [ref=e222]
+    - generic [ref=e224]: Error loading recent bookings
+    - button "Close" [ref=e226] [cursor=pointer]:
+      - img [ref=e227]
+```

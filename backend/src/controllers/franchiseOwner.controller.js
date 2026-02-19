@@ -236,6 +236,7 @@ export const getDashboardData = async (req, res) => {
     res.json({
       success: true,
       data: {
+        franchiseId: franchiseId, // Include franchiseId for commission module
         franchise: {
           name: franchise.name,
           status: franchise.status

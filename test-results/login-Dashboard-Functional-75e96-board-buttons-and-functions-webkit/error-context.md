@@ -1,0 +1,70 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - img [ref=e7]
+      - img [ref=e10]
+      - img [ref=e13]
+      - img [ref=e16]
+    - banner [ref=e18]:
+      - generic [ref=e19]:
+        - img "NexCharge" [ref=e22] [cursor=pointer]
+        - generic [ref=e24]:
+          - button "Login" [ref=e25] [cursor=pointer]: Login
+          - button "Sign Up" [ref=e26] [cursor=pointer]: Sign Up
+    - main [ref=e27]:
+      - generic [ref=e29]:
+        - generic [ref=e32]:
+          - heading "Charge Smarter" [level=1] [ref=e34]
+          - heading "Drive Greener" [level=2] [ref=e35]
+          - heading "To a Better Future" [level=2] [ref=e36]
+          - heading "NexCharge makes EV charging effortless with smart booking, real-time station updates, and eco-friendly energy insights. Find nearby chargers, reserve slots, and power your journey with clean, reliable, and sustainable energy — all in one simple platform." [level=5] [ref=e37]
+        - generic [ref=e42]:
+          - heading "Welcome Back" [level=5] [ref=e43]
+          - generic [ref=e45]:
+            - generic [ref=e46]:
+              - generic [ref=e47]: Email address
+              - generic [ref=e48]:
+                - img [ref=e50]
+                - textbox "Email address" [ref=e52]:
+                  - /placeholder: Enter your email
+                  - text: admin@gmail.com
+                - group:
+                  - generic: Email address
+            - generic [ref=e53]:
+              - generic [ref=e54]: Password
+              - generic [ref=e55]:
+                - img [ref=e57]
+                - textbox "Password" [ref=e59]:
+                  - /placeholder: Enter your password
+                  - text: Admin@123
+                - button [ref=e61] [cursor=pointer]:
+                  - img [ref=e62]
+                - group:
+                  - generic: Password
+              - paragraph [ref=e64]: Load failed
+            - button "Forgot your password?" [ref=e66] [cursor=pointer]
+            - button "Sign In" [active] [ref=e67] [cursor=pointer]: Sign In
+          - generic [ref=e68]:
+            - separator
+            - paragraph [ref=e69]: or continue with
+            - separator
+          - button "Continue with Google" [ref=e71] [cursor=pointer]:
+            - img [ref=e73]
+            - text: Continue with Google
+          - paragraph [ref=e76]:
+            - text: Don't have an account?
+            - button "Sign up" [ref=e77] [cursor=pointer]
+    - contentinfo [ref=e78]:
+      - generic [ref=e81]:
+        - paragraph [ref=e82]: © NexCharge 2025. All rights reserved.
+        - generic [ref=e83]:
+          - link "Privacy Policy" [ref=e84]:
+            - /url: "#"
+          - link "Terms of Service" [ref=e85]:
+            - /url: "#"
+  - iframe [ref=e86]:
+    
+```

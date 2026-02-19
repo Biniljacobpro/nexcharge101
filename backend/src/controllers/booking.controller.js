@@ -714,6 +714,8 @@ export const completeBooking = async (req, res) => {
 
     booking.actualDuration = actualDurationMinutes;
     booking.pricing.actualCost = actualCost;
+    // Set totalCost for commission calculation
+    booking.totalCost = booking.payment?.paidAmount || actualCost;
 
     await booking.save();
 
@@ -742,8 +744,13 @@ export const completeBooking = async (req, res) => {
     }
 
     // Generate commission automatically
+    // This will create a commission record for the franchise/corporate owner
+    // based on the booking's totalCost and their commission rate
     try {
-      await generateCommissionFromBooking(booking._id);
+      const commission = await generateCommissionFromBooking(booking._id);
+      if (commission) {
+        console.log(`✓ Commission generated: ₹${commission.netCommission.toFixed(2)} for booking ${booking._id}`);
+      }
     } catch (commissionError) {
       console.error('Error generating commission:', commissionError);
       // Don't fail the booking completion if commission generation fails

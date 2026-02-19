@@ -88,6 +88,11 @@ const UserHomePage = () => {
   const [bookingToCancel, setBookingToCancel] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelSuccess, setCancelSuccess] = useState(false);
+  
+  // Nearby stations state
+  const [nearbyStations, setNearbyStations] = useState([]);
+  const [userLocation, setUserLocation] = useState(null);
+  const [stationsLoading, setStationsLoading] = useState(true);
 
 
   // Function to load user bookings
@@ -128,6 +133,119 @@ const UserHomePage = () => {
       setBookingsLoading(false);
     }
   };
+
+  // Function to calculate distance between two coordinates using Haversine formula
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Radius of Earth in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  // Function to load nearby stations
+  const loadNearbyStations = async (userLat, userLng) => {
+    try {
+      setStationsLoading(true);
+      const apiBase = process.env.REACT_APP_API_BASE || 'http://localhost:4000/api';
+      const res = await fetch(`${apiBase}/public/stations`);
+      if (!res.ok) throw new Error('Failed to load stations');
+      const body = await res.json();
+      const stations = (body?.data || []).map((s) => {
+        // Extract coordinates properly
+        let lat = 0;
+        let lng = 0;
+        
+        if (s.location?.coordinates) {
+          if (Array.isArray(s.location.coordinates)) {
+            lng = s.location.coordinates[0];
+            lat = s.location.coordinates[1];
+          } else if (typeof s.location.coordinates === 'object') {
+            lat = s.location.coordinates.latitude || s.location.coordinates.lat || 0;
+            lng = s.location.coordinates.longitude || s.location.coordinates.lng || 0;
+          }
+        } else {
+          lat = s.lat || s.latitude || 0;
+          lng = s.lng || s.longitude || 0;
+        }
+        
+        // Calculate available slots
+        let availableSlots = s.availableSlots ?? s.capacity?.availableSlots ?? 0;
+        let totalChargers = s.capacity?.totalChargers ?? 0;
+        
+        if (s.capacity?.chargers && Array.isArray(s.capacity.chargers)) {
+          totalChargers = s.capacity.chargers.length;
+          availableSlots = s.capacity.chargers.filter(charger => charger.isAvailable).length;
+        }
+        
+        const distance = calculateDistance(userLat, userLng, lat, lng);
+        
+        return {
+          id: s.id || s._id,
+          name: s.name || 'Unknown Station',
+          lat: parseFloat(lat) || 0,
+          lng: parseFloat(lng) || 0,
+          type: (Array.isArray(s.capacity?.chargerTypes) && s.capacity.chargerTypes.length > 0) ? s.capacity.chargerTypes[0] : 'Various',
+          available: availableSlots,
+          total: totalChargers,
+          pricePerMinute: (s.pricing?.pricePerMinute ?? s.pricing?.basePrice ?? 0),
+          status: s.operational?.status || 'active',
+          rating: s.analytics?.rating ?? 0,
+          amenities: s.amenities || [],
+          distance: distance
+        };
+      });
+      
+      // Sort by distance and get top 6
+      const sortedStations = stations
+        .filter(s => s.lat !== 0 && s.lng !== 0)
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 6);
+      
+      setNearbyStations(sortedStations);
+    } catch (error) {
+      console.error('Failed to load nearby stations:', error);
+      setNearbyStations([]);
+    } finally {
+      setStationsLoading(false);
+    }
+  };
+
+  // Get user location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation({ lat: latitude, lng: longitude });
+          loadNearbyStations(latitude, longitude);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          // Default location (India center)
+          const defaultLat = 20.5937;
+          const defaultLng = 78.9629;
+          setUserLocation({ lat: defaultLat, lng: defaultLng });
+          loadNearbyStations(defaultLat, defaultLng);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000
+        }
+      );
+    } else {
+      // Default location if geolocation not supported
+      const defaultLat = 20.5937;
+      const defaultLng = 78.9629;
+      setUserLocation({ lat: defaultLat, lng: defaultLng });
+      loadNearbyStations(defaultLat, defaultLng);
+    }
+  }, []);
 
   useEffect(() => {
     const loadUserProfile = async () => {
@@ -574,14 +692,13 @@ const UserHomePage = () => {
               </Grid>
             </Grid>
 
-
             
             {/* Nearby Charging Stations */}
             <Box sx={{ mb: 6 }}>
               <Typography variant="h5" sx={{ fontWeight: 700, color: '#1f2937', mb: 2 }}>
                 Nearby Charging Stations
               </Typography>
-              <InteractiveMap />
+              <InteractiveMap hideFilter={true} maxStations={6} />
             </Box>
 
             {/* Recent Activity */}

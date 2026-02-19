@@ -22,10 +22,11 @@ import {
   CircularProgress,
   Alert
 } from '@mui/material';
-import { AttachMoney as MoneyIcon } from '@mui/icons-material';
+import { CurrencyRupee as MoneyIcon } from '@mui/icons-material';
 import * as api from '../utils/api';
+import { franchiseOwnerService } from '../services/franchiseOwnerService';
 
-const FranchiseCommissionsPage = () => {
+const FranchiseCommissionsPage = ({ franchiseId: franchiseIdProp }) => {
   const [commissions, setCommissions] = useState([]);
   const [stats, setStats] = useState({
     totalEarnings: 0,
@@ -35,6 +36,7 @@ const FranchiseCommissionsPage = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [franchiseId, setFranchiseId] = useState(franchiseIdProp);
   
   // Filters
   const [statusFilter, setStatusFilter] = useState('all');
@@ -46,7 +48,26 @@ const FranchiseCommissionsPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const limit = 10;
 
-  const franchiseId = localStorage.getItem('franchiseId');
+  // Fetch franchiseId from backend if not provided as prop
+  useEffect(() => {
+    const fetchFranchiseId = async () => {
+      if (!franchiseIdProp) {
+        try {
+          const response = await franchiseOwnerService.getDashboardData();
+          if (response?.success && response?.data?.franchiseId) {
+            setFranchiseId(response.data.franchiseId);
+          } else {
+            setError('Franchise ID not found. Please wait for dashboard to load or contact your corporate admin if the problem persists.');
+          }
+        } catch (err) {
+          console.error('Error fetching franchise ID:', err);
+          setError('Franchise information not available. Please wait for dashboard to load or contact your corporate admin if the problem persists.');
+        }
+      }
+    };
+    
+    fetchFranchiseId();
+  }, [franchiseIdProp]);
 
   useEffect(() => {
     if (franchiseId) {
@@ -69,8 +90,8 @@ const FranchiseCommissionsPage = () => {
       const response = await api.getFranchiseCommissions(franchiseId, params);
       
       if (response.success) {
-        setCommissions(response.data);
-        setTotalPages(response.pagination?.pages || 1);
+        setCommissions(response.data.commissions || []);
+        setTotalPages(response.data.pagination?.pages || 1);
       }
     } catch (err) {
       setError(err.message || 'Failed to load commissions');
@@ -155,6 +176,18 @@ const FranchiseCommissionsPage = () => {
   ];
 
   const years = Array.from({ length: 11 }, (_, i) => 2020 + i);
+
+  // Early return if no franchiseId
+  if (!franchiseId) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Alert severity="error" sx={{ maxWidth: 600, mx: 'auto' }}>
+          <Typography variant="h6">Franchise ID Not Found</Typography>
+          <Typography>Franchise information not available. Please wait for dashboard to load or contact your corporate admin if the problem persists.</Typography>
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -309,8 +342,8 @@ const FranchiseCommissionsPage = () => {
                       <TableRow key={commission._id} hover>
                         <TableCell>{formatDate(commission.createdAt)}</TableCell>
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                            {commission.bookingId?.bookingNumber || 'N/A'}
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                            {commission.bookingId?._id ? `...${commission.bookingId._id.toString().slice(-8)}` : 'N/A'}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
@@ -369,3 +402,5 @@ const FranchiseCommissionsPage = () => {
 };
 
 export default FranchiseCommissionsPage;
+
+

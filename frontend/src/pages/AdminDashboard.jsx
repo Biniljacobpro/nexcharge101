@@ -64,7 +64,7 @@ import {
   Refresh as RefreshIcon,
   MoreVert as MoreVertIcon,
   Delete as DeleteIcon,
-  AttachMoney as AttachMoneyIcon
+  CurrencyRupee as AttachMoneyIcon
 } from '@mui/icons-material';
 import NotificationDropdown from '../components/NotificationDropdown';
 import { useNavigate } from 'react-router-dom';

@@ -61,7 +61,7 @@ const CommissionSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  netCommissionAmount: {
+  netCommission: {
     type: Number,
     required: true
   },
@@ -78,6 +78,10 @@ const CommissionSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'approved', 'paid', 'cancelled', 'disputed'],
     default: 'pending'
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
   
   // Payment details
@@ -125,17 +129,22 @@ CommissionSchema.virtual('entity', {
 CommissionSchema.statics.calculateCommission = function(baseAmount, commissionRate, taxRate = 0) {
   const commissionAmount = (baseAmount * commissionRate) / 100;
   const taxAmount = (commissionAmount * taxRate) / 100;
-  const netCommissionAmount = commissionAmount - taxAmount;
+  const netCommission = commissionAmount + taxAmount; // Tax is added to commission for total payout
   
   return {
     commissionAmount: Math.round(commissionAmount * 100) / 100,
     taxAmount: Math.round(taxAmount * 100) / 100,
-    netCommissionAmount: Math.round(netCommissionAmount * 100) / 100
+    netCommission: Math.round(netCommission * 100) / 100
   };
 };
 
 // Static method to get commission summary
 CommissionSchema.statics.getSummary = async function(query = {}) {
+  // Convert entityId to ObjectId if it exists and is a string
+  if (query.entityId && typeof query.entityId === 'string') {
+    query.entityId = new mongoose.Types.ObjectId(query.entityId);
+  }
+  
   return this.aggregate([
     { $match: query },
     {
@@ -143,20 +152,20 @@ CommissionSchema.statics.getSummary = async function(query = {}) {
         _id: null,
         totalCommission: { $sum: '$commissionAmount' },
         totalTax: { $sum: '$taxAmount' },
-        totalNet: { $sum: '$netCommissionAmount' },
+        totalNet: { $sum: '$netCommission' },
         pendingCommission: {
           $sum: {
-            $cond: [{ $eq: ['$status', 'pending'] }, '$netCommissionAmount', 0]
+            $cond: [{ $eq: ['$status', 'pending'] }, '$netCommission', 0]
           }
         },
         approvedCommission: {
           $sum: {
-            $cond: [{ $eq: ['$status', 'approved'] }, '$netCommissionAmount', 0]
+            $cond: [{ $eq: ['$status', 'approved'] }, '$netCommission', 0]
           }
         },
         paidCommission: {
           $sum: {
-            $cond: [{ $eq: ['$status', 'paid'] }, '$netCommissionAmount', 0]
+            $cond: [{ $eq: ['$status', 'paid'] }, '$netCommission', 0]
           }
         },
         count: { $sum: 1 }
@@ -171,7 +180,7 @@ CommissionSchema.statics.getMonthlySummary = async function(entityType, entityId
     {
       $match: {
         entityType,
-        entityId: mongoose.Types.ObjectId(entityId),
+        entityId: new mongoose.Types.ObjectId(entityId),
         'period.year': year
       }
     },
@@ -180,17 +189,17 @@ CommissionSchema.statics.getMonthlySummary = async function(entityType, entityId
         _id: '$period.month',
         month: { $first: '$period.month' },
         totalCommission: { $sum: '$commissionAmount' },
-        totalNet: { $sum: '$netCommissionAmount' },
+        totalNet: { $sum: '\$netCommission' },
         totalTax: { $sum: '$taxAmount' },
         count: { $sum: 1 },
         pending: {
           $sum: {
-            $cond: [{ $eq: ['$status', 'pending'] }, '$netCommissionAmount', 0]
+            $cond: [{ $eq: ['$status', 'pending'] }, '\$netCommission', 0]
           }
         },
         paid: {
           $sum: {
-            $cond: [{ $eq: ['$status', 'paid'] }, '$netCommissionAmount', 0]
+            $cond: [{ $eq: ['$status', 'paid'] }, '\$netCommission', 0]
           }
         }
       }
@@ -202,3 +211,6 @@ CommissionSchema.statics.getMonthlySummary = async function(entityType, entityId
 const Commission = mongoose.model('Commission', CommissionSchema);
 
 export default Commission;
+
+
+

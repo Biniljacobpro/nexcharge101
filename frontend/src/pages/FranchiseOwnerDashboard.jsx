@@ -81,7 +81,7 @@ import {
   Description,
   Code,
   Map,
-  AttachMoney as MoneyIcon,
+  CurrencyRupee as MoneyIcon,
   Settings,
   ExpandMore,
   BatteryChargingFull

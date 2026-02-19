@@ -1,0 +1,73 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - img [ref=e7]
+      - img [ref=e10]
+      - img [ref=e13]
+      - img [ref=e16]
+    - banner [ref=e18]:
+      - generic [ref=e19]:
+        - img "NexCharge" [ref=e22] [cursor=pointer]
+        - generic [ref=e24]:
+          - button "Login" [ref=e25] [cursor=pointer]: Login
+          - button "Sign Up" [ref=e26] [cursor=pointer]: Sign Up
+    - main [ref=e27]:
+      - generic [ref=e29]:
+        - generic [ref=e32]:
+          - heading "Power Your Future with Clean Energy" [level=1] [ref=e33]
+          - heading "AI-powered, intelligent, and sustainable charging ecosystem that revolutionizes your EV experience with smart booking, real-time updates, and eco-friendly insights." [level=5] [ref=e34]
+          - generic [ref=e35]:
+            - button "Get Started" [ref=e36] [cursor=pointer]: Get Started
+            - button "Learn More" [ref=e37] [cursor=pointer]: Learn More
+        - img [ref=e45]
+    - generic [ref=e2186]:
+      - heading "Why Choose NexCharge?" [level=2] [ref=e2188]
+      - generic [ref=e2189]:
+        - generic [ref=e2194]:
+          - img [ref=e2197]
+          - generic [ref=e2199]:
+            - heading "AI Route Planner" [level=6] [ref=e2200]
+            - paragraph [ref=e2201]: Intelligent route optimization for efficient charging stops.
+        - generic [ref=e2206]:
+          - img [ref=e2209]
+          - generic [ref=e2212]:
+            - heading "Smart Booking" [level=6] [ref=e2213]
+            - paragraph [ref=e2214]: Reserve charging stations in advance with real-time availability.
+        - generic [ref=e2219]:
+          - img [ref=e2222]
+          - generic [ref=e2224]:
+            - heading "Battery Health" [level=6] [ref=e2225]
+            - paragraph [ref=e2226]: Monitor and optimize your EV battery performance.
+        - generic [ref=e2231]:
+          - img [ref=e2234]
+          - generic [ref=e2236]:
+            - heading "Station Finder" [level=6] [ref=e2237]
+            - paragraph [ref=e2238]: Find nearby charging stations with detailed information.
+        - generic [ref=e2243]:
+          - img [ref=e2246]
+          - generic [ref=e2248]:
+            - heading "Fast Charging" [level=6] [ref=e2249]
+            - paragraph [ref=e2250]: Access to high-speed charging networks.
+        - generic [ref=e2255]:
+          - img [ref=e2258]
+          - generic [ref=e2260]:
+            - heading "Secure Payments" [level=6] [ref=e2261]
+            - paragraph [ref=e2262]: Safe and encrypted payment processing.
+    - generic [ref=e2267]:
+      - heading "Start Charging Smarter Today" [level=2] [ref=e2268]
+      - heading "Join thousands of EV drivers who are already experiencing the future of sustainable transportation with intelligent charging solutions." [level=5] [ref=e2269]
+      - button "Get Started Now" [ref=e2270] [cursor=pointer]: Get Started Now
+    - contentinfo [ref=e2271]:
+      - generic [ref=e2274]:
+        - paragraph [ref=e2275]: © NexCharge 2025. All rights reserved.
+        - generic [ref=e2276]:
+          - link "Privacy Policy" [ref=e2277]:
+            - /url: "#"
+          - link "Terms of Service" [ref=e2278]:
+            - /url: "#"
+  - iframe [ref=e2279]:
+    
+```

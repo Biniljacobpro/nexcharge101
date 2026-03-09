@@ -165,7 +165,9 @@ export const getCorporateCommissions = async (req, res) => {
     }
     
     const userId = req.user.sub || req.user._id;
-    if (req.user.role !== 'admin' && corporate.adminId.toString() !== userId.toString()) {
+    // Corporate uses admins array, check if user is in the array
+    const isAdmin = corporate.admins?.some(adminId => adminId.toString() === userId.toString());
+    if (req.user.role !== 'admin' && !isAdmin) {
       return res.status(403).json({ message: 'Access denied' });
     }
     
@@ -214,7 +216,22 @@ export const getCorporateCommissions = async (req, res) => {
 // Get monthly summary
 export const getMonthlyCommissionSummary = async (req, res) => {
   try {
-    const { entityType, entityId } = req.params;
+    // Handle both specific routes (franchise/:franchiseId, corporate/:corporateId)
+    // and generic routes (:entityType/:entityId)
+    let entityType = req.params.entityType;
+    let entityId = req.params.entityId;
+    
+    // If franchiseId is present, it's a franchise-specific route
+    if (req.params.franchiseId) {
+      entityType = 'franchise';
+      entityId = req.params.franchiseId;
+    }
+    // If corporateId is present, it's a corporate-specific route
+    else if (req.params.corporateId) {
+      entityType = 'corporate';
+      entityId = req.params.corporateId;
+    }
+    
     const { year = new Date().getFullYear() } = req.query;
     
     // Verify access
@@ -232,7 +249,9 @@ export const getMonthlyCommissionSummary = async (req, res) => {
       if (!corporate) {
         return res.status(404).json({ message: 'Corporate not found' });
       }
-      if (req.user.role !== 'admin' && corporate.adminId.toString() !== userId.toString()) {
+      // Corporate uses admins array, check if user is in the array
+      const isAdmin = corporate.admins?.some(adminId => adminId.toString() === userId.toString());
+      if (req.user.role !== 'admin' && !isAdmin) {
         return res.status(403).json({ message: 'Access denied' });
       }
     }
@@ -362,7 +381,21 @@ export const getAllCommissions = async (req, res) => {
 // Get commission dashboard stats
 export const getCommissionStats = async (req, res) => {
   try {
-    const { entityType, entityId } = req.params;
+    // Handle both specific routes (franchise/:franchiseId, corporate/:corporateId)
+    // and generic routes (:entityType/:entityId)
+    let entityType = req.params.entityType;
+    let entityId = req.params.entityId;
+    
+    // If franchiseId is present, it's a franchise-specific route
+    if (req.params.franchiseId) {
+      entityType = 'franchise';
+      entityId = req.params.franchiseId;
+    }
+    // If corporateId is present, it's a corporate-specific route
+    else if (req.params.corporateId) {
+      entityType = 'corporate';
+      entityId = req.params.corporateId;
+    }
     
     // Verify access
     const userId = req.user.sub || req.user._id;
@@ -373,7 +406,12 @@ export const getCommissionStats = async (req, res) => {
       }
     } else if (entityType === 'corporate') {
       const corporate = await Corporate.findById(entityId);
-      if (!corporate || (req.user.role !== 'admin' && corporate.adminId.toString() !== userId.toString())) {
+      if (!corporate) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+      // Corporate uses admins array, check if user is in the array
+      const isAdmin = corporate.admins?.some(adminId => adminId.toString() === userId.toString());
+      if (req.user.role !== 'admin' && !isAdmin) {
         return res.status(403).json({ message: 'Access denied' });
       }
     }

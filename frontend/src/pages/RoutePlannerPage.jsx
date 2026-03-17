@@ -2,17 +2,8 @@ import React, { useEffect, useState } from 'react';
 import {
   Box,
   Container,
-  Typography,
-  Button,
-  AppBar,
-  Toolbar,
-  IconButton,
   CircularProgress
 } from '@mui/material';
-import {
-  ArrowBack as BackIcon,
-  Directions as DirectionsIcon
-} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import RoutePlanner from '../components/RoutePlanner';
 import UserNavbar from '../components/UserNavbar';
@@ -54,37 +45,6 @@ const RoutePlannerPage = () => {
     <>
       <UserNavbar user={user} />
       <AnimatedBackground />
-      
-      {/* Header with Back Button */}
-      <AppBar 
-        position="static" 
-        color="default" 
-        elevation={0}
-        sx={{ 
-          borderBottom: '1px solid #e0e0e0',
-          bgcolor: 'background.paper',
-          position: 'sticky',
-          top: 0,
-          zIndex: 1000
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            edge="start"
-            color="inherit"
-            onClick={() => navigate('/home')}
-            sx={{ mr: 2 }}
-          >
-            <BackIcon />
-          </IconButton>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <DirectionsIcon color="primary" />
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Route Planner
-            </Typography>
-          </Box>
-        </Toolbar>
-      </AppBar>
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <RoutePlanner />

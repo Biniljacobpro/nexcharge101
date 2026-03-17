@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { TextField, Box } from '@mui/material';
+import { TextField, Box, CircularProgress } from '@mui/material';
 import { Autocomplete } from '@react-google-maps/api';
 
 const PlaceAutocomplete = ({ 
@@ -13,7 +13,22 @@ const PlaceAutocomplete = ({
 }) => {
   const [autocomplete, setAutocomplete] = useState(null);
   const [inputValue, setInputValue] = useState(value || '');
+  const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
   const inputRef = useRef(null);
+
+  // Check if Google Maps is loaded
+  useEffect(() => {
+    const checkGoogleMaps = () => {
+      if (window.google && window.google.maps && window.google.maps.places) {
+        setIsGoogleMapsLoaded(true);
+      } else {
+        // Retry after a short delay
+        setTimeout(checkGoogleMaps, 100);
+      }
+    };
+
+    checkGoogleMaps();
+  }, []);
 
   useEffect(() => {
     setInputValue(value || '');
@@ -46,6 +61,24 @@ const PlaceAutocomplete = ({
       }
     }
   };
+
+  // Show loading state while Google Maps is loading
+  if (!isGoogleMapsLoaded) {
+    return (
+      <Box sx={{ mb: 2 }}>
+        <TextField
+          fullWidth
+          label={label}
+          placeholder="Loading Google Places..."
+          disabled
+          InputProps={{
+            endAdornment: <CircularProgress size={20} />,
+          }}
+          helperText="Loading Google Maps API..."
+        />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ mb: 2 }}>

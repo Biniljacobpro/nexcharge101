@@ -18,7 +18,7 @@ import {
   Home as HomeIcon,
   Map as StationsIcon,
   EventNote as BookingsIcon,
-  HelpOutline as SupportIcon,
+  Directions as RoutePlannerIcon,
   KeyboardArrowDown as ArrowDownIcon
 } from '@mui/icons-material';
 import NotificationDropdown from './NotificationDropdown';
@@ -110,8 +110,8 @@ const UserNavbar = ({ user }) => {
             <Button color="inherit" sx={{ color: '#1f2937', fontWeight: 500 }} onClick={() => navigate('/bookings')} startIcon={<BookingsIcon />}>
               Bookings
             </Button>
-            <Button color="inherit" sx={{ color: '#1f2937', fontWeight: 500 }} startIcon={<SupportIcon />}>
-              Support
+            <Button color="inherit" sx={{ color: '#1f2937', fontWeight: 500 }} onClick={() => navigate('/route-planner')} startIcon={<RoutePlannerIcon />}>
+              Route Planner
             </Button>
           </Box>
 

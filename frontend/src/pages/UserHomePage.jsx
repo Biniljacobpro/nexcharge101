@@ -27,7 +27,6 @@ import {
   DirectionsCar as CarIcon,
   AddCircleOutline as AddIcon,
   LocationOn as LocationIcon,
-  Payment as PaymentIcon,
   History as HistoryIcon,
   Notifications as NotificationsIcon,
   Settings as SettingsIcon,
@@ -656,20 +655,6 @@ const UserHomePage = () => {
                         </Typography>
                         <Typography variant="body2" color="text.secondary" sx={{ mx: 'auto' }}>
                           View your reservations
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Card onClick={() => navigate('/payments')} sx={{ height: '100%', borderRadius: 3, boxShadow: '0 6px 24px rgba(0,0,0,0.08)', cursor: 'pointer', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 10px 28px rgba(0,0,0,0.12)' } }}>
-                      <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', p: 3, minHeight: 150 }}>
-                        <PaymentIcon sx={{ fontSize: 40, color: 'warning.main', mb: 2 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 1 }}>
-                          Payments
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mx: 'auto' }}>
-                          Manage payment methods
                         </Typography>
                       </CardContent>
                     </Card>

@@ -16,6 +16,8 @@
 
 The system implements modern web technologies with advanced machine learning capabilities, featuring multi-role dashboards, real-time booking management, payment integration, fraud detection, predictive maintenance, and comprehensive analytics.
 
+The platform now includes a dedicated **Flutter mobile app for EV users** that uses the same **Node.js backend hosted on Vercel** as the web platform, ensuring unified business logic, security, and data consistency across mobile and web.
+
 ### 👨‍🎓 Project Information
 - **Program**: Master of Computer Applications (MCA)
 - **Project Type**: Final Year Project
@@ -25,9 +27,123 @@ The system implements modern web technologies with advanced machine learning cap
 
 ---
 
+## 📌 NexCharge Concise Project Summary
+
+### 1. Overview
+
+NexCharge is a full EV charging ecosystem consisting of:
+
+- Flutter mobile app for EV users
+- Node.js backend shared by mobile and web platforms
+- Web dashboards for operational roles
+
+It manages the complete EV charging journey:
+
+- User onboarding and authentication
+- Station discovery
+- Booking and charging sessions
+- Payments and refunds
+- Vehicle management
+- Notifications and reviews
+- Route planning
+- AI/ML-powered analytics and predictions
+
+The system follows a modular multi-role architecture, where the mobile app serves EV users while the backend also supports admin, corporate, franchise owner, and station manager dashboards.
+
+### 2. Platform Architecture
+
+#### Mobile Frontend
+- Flutter + Dart
+- Provider state management
+- Dio networking
+- Google Maps integration
+- Razorpay SDK
+- SharedPreferences for session storage
+
+#### Backend
+- Node.js + Express
+- MongoDB + Mongoose
+- JWT authentication
+- Role-based middleware
+- Cron jobs for ML pipelines
+- Cloudinary uploads
+- Nodemailer for email notifications
+
+The mobile app acts as a client of the same shared backend used by both mobile and web platforms.
+
+### 3. Core Mobile App Modules
+
+- Authentication (login, signup, OTP-based reset, session persistence)
+- Home and navigation
+- Station discovery (listing, details, timeline, ratings/reviews)
+- Booking lifecycle (create, extend/cancel, OTP start, stop/complete)
+- Payments (order, verify, history, details, refunds, retry, receipt)
+- Notifications (unread count, mark read, delete)
+- Vehicle management (add/update/delete, model support)
+- Profile management (edit, password, image upload)
+- Route planner (map-based, charging-stop visualization)
+
+### 4. Backend Enterprise Modules
+
+The backend also powers enterprise and operations dashboards:
+
+- Admin platform controls
+- Corporate analytics and management
+- Franchise owner dashboards
+- Station manager dashboards
+- Vehicle request workflows
+- Commission systems
+
+### 5. AI/ML Systems Included
+
+- Sentiment Analysis (Naive Bayes)
+- Fraud Detection (Decision Tree)
+- Predictive Maintenance (KNN)
+- User Churn Prediction (SVM-style churn scoring pipeline)
+- Charging intelligence (SOC curve behavior and dynamic pricing logic)
+- Route optimization architecture with energy prediction support
+
+### 6. Data Model Scope
+
+Core entities include:
+
+- User
+- Station
+- Booking
+- Vehicle
+- Payment
+- Notification
+- Review
+- MaintenanceRecord
+- FraudAttemptLog
+- Corporate and franchise entities
+- Commission models
+
+### 7. Security and Reliability
+
+- Role-based API protection
+- Mobile EV-user role validation
+- JWT token-based authentication
+- Booking overlap and availability checks
+- Fraud logging and monitoring
+- Side-effect-safe workflow design for notifications/emails
+
+### 8. Integration Observations (Current Technical Notes)
+
+- Route planner contract should stay synchronized between mobile and backend payload expectations.
+- Sentiment update path should consistently use the correct classifier function imports.
+- Maintenance-admin route protection should be validated to avoid accidental access blocks.
+
+### 9. Final Assessment
+
+NexCharge is a platform-scale EV charging system where the Flutter app is the EV-user interface layer connected to a multi-role operational backend. It already includes advanced capabilities such as fraud detection, sentiment analytics, predictive maintenance, churn prediction, and charging intelligence, making it technically strong and scalable.
+
+---
+
 ## 🌟 Key Features
 
 ### 🚗 For EV Users
+- **Flutter Mobile App**: Complete EV-user experience on Android/iOS using the shared backend
 - **Smart Station Discovery**: Interactive map-based search with real-time availability
 - **Intelligent Booking System**: Time slot-based booking with conflict prevention
 - **Multi-Stop Route Planner**: AI-powered route optimization with charging stops
@@ -124,6 +240,14 @@ The system implements modern web technologies with advanced machine learning cap
 
 ## 🛠️ Technology Stack
 
+### Mobile App (EV Users)
+- **Framework**: Flutter (Dart)
+- **State Management**: Provider
+- **Networking**: Dio
+- **Maps**: Google Maps SDK
+- **Payments**: Razorpay Flutter SDK
+- **Local Storage**: SharedPreferences
+
 ### Frontend
 - **Framework**: React.js 18.2.0
 - **UI Library**: Material-UI (MUI) 5.14.20
@@ -159,7 +283,7 @@ The system implements modern web technologies with advanced machine learning cap
 - **SVM**: ml-svm 0.0.0
 - **NLP**: natural 8.1.0
 - **Python ML Service**: 
-  - Flask (for ML API)
+  - FastAPI (for ML API)
   - scikit-learn
   - pandas
   - numpy
@@ -175,6 +299,7 @@ The system implements modern web technologies with advanced machine learning cap
 - **Validation**: 
   - Express Validator 7.2.1
   - Joi 17.12.0
+- **Deployment**: Vercel (Node.js backend hosting)
 
 ### External Services
 - **Firebase**: Authentication & Real-time Notifications
@@ -192,7 +317,7 @@ The system implements modern web technologies with advanced machine learning cap
 ┌─────────────────────────────────────────────────────────────────┐
 │                         CLIENT LAYER                             │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   React UI   │  │  Mobile Web  │  │  Admin Panel │          │
+│  │ Flutter App  │  │   React Web  │  │ Admin Dashs  │          │
 │  └──────────────┘  └──────────────┘  └──────────────┘          │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -224,7 +349,7 @@ The system implements modern web technologies with advanced machine learning cap
 ┌──────────────────────────┐  ┌──────────────────────────┐
 │    ML SERVICE LAYER      │  │   EXTERNAL SERVICES      │
 │  ┌──────────────────┐    │  │  ┌──────────────────┐   │
-│  │  Python Flask    │    │  │  │    Razorpay      │   │
+│  │  Python FastAPI  │    │  │  │    Razorpay      │   │
 │  │   ML Models      │    │  │  │    Gateway       │   │
 │  └──────────────────┘    │  │  └──────────────────┘   │
 │  - Fraud Detection       │  │  ┌──────────────────┐   │
@@ -432,6 +557,8 @@ REACT_APP_GOOGLE_MAPS_API_KEY=your_maps_api_key
 ## 📱 Usage
 
 ### For EV Users
+This flow is available on both the Flutter mobile app and web client using the same backend APIs.
+
 1. **Sign Up**: Create account or use Google OAuth
 2. **Add Vehicle**: Register your EV with specifications
 3. **Find Stations**: Search using map or location
@@ -508,6 +635,8 @@ npx playwright show-report
 ### Base URLs
 - **Development**: `http://localhost:4000/api`
 - **Production**: `https://nexcharge101.vercel.app/api`
+
+Both the Flutter mobile app and React web app use this shared Node.js backend.
 
 ### Key Endpoints
 
@@ -618,7 +747,7 @@ npx playwright show-report
 - [x] E2E testing suite
 
 ### Future Enhancements 🚀
-- [ ] Mobile apps (iOS & Android)
+- [x] Flutter EV-user mobile app (shared backend)
 - [ ] IoT integration for chargers
 - [ ] Real-time charger monitoring
 - [ ] Dynamic pricing algorithms
@@ -640,6 +769,7 @@ npx playwright show-report
 
 ### Technical Achievements
 - ✅ Full-stack MERN application with 15,000+ lines of code
+- ✅ Flutter EV-user mobile app integrated with shared backend
 - ✅ 5 Machine Learning models integrated
 - ✅ 138 automated test cases with 71.7% pass rate
 - ✅ Multi-role architecture with 5 user types
@@ -795,4 +925,4 @@ This project is submitted in partial fulfillment of the requirements for the deg
 
 ---
 
-**Last Updated**: February 19, 2026
+**Last Updated**: March 16, 2026

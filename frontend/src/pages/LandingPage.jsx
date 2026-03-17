@@ -7,8 +7,6 @@ import {
   Grid,
   Card,
   CardContent,
-  useTheme,
-  useMediaQuery,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -25,8 +23,6 @@ import Lottie from 'lottie-react';
 import greenEnergyAnimation from '../assets/animations/greenEnergyAnimation.json';
 
 const LandingPage = () => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
 
   const features = [
